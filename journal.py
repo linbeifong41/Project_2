@@ -1,5 +1,7 @@
 import tkinter as tk
 from datetime import date 
+from tkinter import scrolledtext
+
 
 def open_journal_screen():
     journal_window = tk.Toplevel()
@@ -10,8 +12,9 @@ def open_journal_screen():
     heading =  tk.Label(journal_window, text="Write Your Journal", font=("Arial", 18, "bold"), bg="#ECEBEB")
     heading.pack(pady=10)
 
-    journal_box = tk.Text(journal_window, width=70, height=20, font=("Arial", 12))
+    journal_box = scrolledtext.ScrolledText(journal_window, width=70, height=20, font=("Arial", 12), wrap=tk.WORD)
     journal_box.pack(pady=10)
+    
 
     def save_journal():
         text = journal_box.get("1.0", tk.END).strip()
