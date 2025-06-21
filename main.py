@@ -29,6 +29,20 @@ journal_button.pack(pady=10)
 mood_log_box = scrolledtext.ScrolledText(root, width=40, height=10, font=("Arial",12))
 mood_log_box.pack(pady=10)
 
+def refresh_logs(): 
+    mood_log_box.delete("1.0", tk.END)
+
+    try:
+        with open("mood_log.txt", "r") as f:
+            mood_log_box.insert(tk.END, f.read())
+    except FileNotFoundError:
+        mood_log_box.insert(tk.END, "No moods logged yet.")
+
+refresh_btn = tk.Button(root, text="Refresh Logs", command=refresh_logs, font=("Arial", 12))
+refresh_btn.pack(pady=5)
+
+
+
 try:
     with open("mood_log.txt", "r") as f:
         mood_log_box.insert(tk.END, f.read())

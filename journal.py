@@ -24,7 +24,7 @@ def open_journal_screen():
             with open(filename, "w", encoding="UTF-8") as file:
                 file.write(text)
             status_label.config(text=f"Saved to {filename}")
-            print(f"Journal Saced To {filename}")
+            print(f"Journal Saved To {filename}")
         else: 
             status_label.config(text="Journal is empty.")
     save_btn = tk.Button(journal_window, text="Save Entry", bg="#F4F4F4", font=("Arial", 10), command=save_journal)
