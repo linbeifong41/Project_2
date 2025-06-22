@@ -42,14 +42,10 @@ refresh_btn = tk.Button(root, text="Refresh Logs", command=refresh_logs, font=("
 refresh_btn.pack(pady=5)
 
 
-
-try:
-    with open("mood_log.txt", "r") as f:
-        mood_log_box.insert(tk.END, f.read())
-except FileNotFoundError:
-    mood_log_box.insert(tk.END, "No moods logged yet.")
-
 root.mainloop()
+
+
+
 
 
 
