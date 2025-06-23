@@ -11,22 +11,18 @@ def open_journal_screen():
     journal_window.configure(bg="#F4f4F4")
 
 
+    selected_filename = tk.StringVar(value="")
+
 
     sidebar = tk.Frame(journal_window, bg="#F4F4F4")
     sidebar.pack(side="left", fill="y", padx= 10, pady=10)
 
-    view_frame = tk.Frame(sidebar, bg="#F4F4F4")
-    view_frame.pack(side="bottom", fill="y")
+    search_entry = tk.Entry(sidebar, width=10, font=("Arial", 10))
+    search_entry.pack(pady=(0, 5))
+    search_entry.insert(0, "Search...")
 
-    view_btn = tk.Button(sidebar, text="View Past Entries", font=("Arial", 10), command=lambda: list_journal_files())
-    view_btn.pack(pady=(0, 10)) 
-
-
-    
     file_list = tk.Listbox(sidebar, width=30, height=6)
     file_list.pack()
-    file_list.bind("<<ListboxSelect>>", lambda e: show_past_entry(file_list.get(tk.ACTIVE)))
-
 
 
     past_entry_box = scrolledtext.ScrolledText(sidebar, width=30, height= 15, font=("Arial", 10))
@@ -34,14 +30,25 @@ def open_journal_screen():
     past_entry_box.config(state= tk.DISABLED)
 
 
-
-    def list_journal_files():
+    def list_journal_files(search_filter=""):
         files = [f for f in os.listdir() if f.startswith("journal_") and f.endswith(".txt")]
+        filtered_files = [f for f in sorted(files, reverse=True) if search_filter.strip() == "" or search_filter.lower() in f.lower()]
         file_list.delete(0, tk.END)
-        for f in sorted(files, reverse=True):
-            file_list.insert(tk.END, f)
+        
+        if filtered_files:
+                for f in filtered_files:
+    
+                    file_list.insert(tk.END, f)
+
+        else: 
+             file_list.insert(tk.END, "No matching entries.")
+
 
     def show_past_entry(filename):
+
+        if filename == "No matching entries":
+            return 
+        
         try:
              with open(filename, "r", encoding="utf-8", ) as file:
                 content = file.read()
@@ -49,11 +56,47 @@ def open_journal_screen():
                 past_entry_box.delete("1.0", tk.END)
                 past_entry_box.insert(tk.END, f"--- {filename} ---\n\n{content}")
                 past_entry_box.config(state=tk.DISABLED)
+                selected_filename.set(filename)
 
         except FileNotFoundError:
             past_entry_box.config(state=tk.NORMAL)
             past_entry_box.insert(tk.END, f"{filename} not found.\n")
             past_entry_box.config(state=tk.DISABLED)
+    
+    def on_file_select(event):
+        selected = file_list.get(tk.ACTIVE)
+        show_past_entry(selected)
+
+
+
+    def enable_editing():
+        if not selected_filename.get():
+            return
+        past_entry_box.config(state=tk.NORMAL)
+        edit_btn.config(text="Save Edit", command=save_edited_entry)
+
+    
+    def save_edited_entry():
+        if selected_filename.get():
+            with open(selected_filename.get(), "w", encoding="utf-8") as file:
+                content = past_entry_box.get("1.0", tk.END).strip()
+                file.write(content)
+            past_entry_box.config(state=tk.DISABLED)
+            edit_btn.config(text="Edit Entry", command=enable_editing)
+            print(f"{filename} Updated")
+
+
+    file_list.bind("<<ListboxSelect>>", on_file_select)
+    search_entry.bind("<KeyRelease>", lambda event: list_journal_files(search_entry.get()))
+
+
+    
+    view_btn = tk.Button(sidebar, text="View Past Entries", font=("Arial", 10), command=lambda: list_journal_files())
+    view_btn.pack(pady=(5, 5)) 
+
+
+    edit_btn = tk.Button(sidebar, text= "Edit Entry", font=("Arial", 10), command=enable_editing)
+    edit_btn.pack(pady=(0, 5))
 
 
     top_frame = tk.Frame(journal_window, bg="#F4F4F4")
@@ -78,6 +121,7 @@ def open_journal_screen():
                 file.write(text)
             status_label.config(text=f"Saved to {filename}")
             print(f"Journal Saved To {filename}")
+            list_journal_files()
         else: 
             status_label.config(text="Journal is empty.")
 
@@ -87,14 +131,6 @@ def open_journal_screen():
 
     status_label = tk.Label(journal_window, text="", bg="#d6d5d5", font=("Arial", 10))
     status_label.pack()
-    
 
-
-
-
-
- 
-
-
-
+    list_journal_files()
 

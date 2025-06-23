@@ -44,13 +44,3 @@ refresh_btn.pack(pady=5)
 
 root.mainloop()
 
-
-
-
-
-
-
-
-
-
-
