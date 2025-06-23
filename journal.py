@@ -83,7 +83,7 @@ def open_journal_screen():
                 file.write(content)
             past_entry_box.config(state=tk.DISABLED)
             edit_btn.config(text="Edit Entry", command=enable_editing)
-            print(f"{filename} Updated")
+            print(f"{selected_filename.get()} Updated")
 
 
     file_list.bind("<<ListboxSelect>>", on_file_select)
@@ -133,4 +133,3 @@ def open_journal_screen():
     status_label.pack()
 
     list_journal_files()
-

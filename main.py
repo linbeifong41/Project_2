@@ -2,6 +2,7 @@ import tkinter as tk
 from datetime import date 
 from journal import  open_journal_screen
 from tkinter import scrolledtext
+from calendar_window import open_calendar_screen
 
 
 def log_mood(level):
@@ -24,6 +25,9 @@ for i in range(1, 6):
 
 journal_button = tk.Button(root, text="Open Journal", command=open_journal_screen, font=("Arial", 12))
 journal_button.pack(pady=10)
+
+calendar_button = tk.Button(root, text="View Calendar", command=open_calendar_screen, font=("Arial", 12))
+calendar_button.pack(pady=10)
 
 
 mood_log_box = scrolledtext.ScrolledText(root, width=40, height=10, font=("Arial",12))
