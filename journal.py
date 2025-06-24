@@ -133,3 +133,36 @@ def open_journal_screen():
     status_label.pack()
 
     list_journal_files()
+
+
+
+def open_specific_journal(date_str):
+    journal_window = tk.Toplevel()
+    journal_window.title(f"Journal - {date_str}")
+    journal_window.geometry("600x500")
+    journal_window.configure(bg="#F4f4F4")
+
+    filename = f"journal_{date_str}.txt"
+
+    heading = tk.Label(journal_window, text=f"Journal for {date_str}", font=("Arial", 16, "bold"), bg="#ECEBEB")
+    heading.pack(pady=10)
+
+    journal_box = scrolledtext.ScrolledText(journal_window, width=70, height=20, font=("Arial", 12), wrap=tk.WORD)
+    journal_box.pack(pady=10)
+
+    
+    if os.path.exists(filename):
+        with open(filename, "r", encoding="utf-8") as file:
+            journal_box.insert(tk.END, file.read())
+
+    def save_entry():
+        content = journal_box.get("1.0", tk.END).strip()
+        with open(filename, "w", encoding="utf-8") as file:
+            file.write(content)
+        status_label.config(text=f"Saved to {filename}")
+
+    save_btn = tk.Button(journal_window, text="Save Entry", command=save_entry)
+    save_btn.pack(pady=5)
+
+    status_label = tk.Label(journal_window, text="", bg="#d6d5d5", font=("Arial", 10))
+    status_label.pack()

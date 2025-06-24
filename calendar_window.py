@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkcalendar import Calendar
+import os
+from journal import open_specific_journal
 
 
 def open_calendar_screen():
@@ -14,11 +16,11 @@ def open_calendar_screen():
     cal = Calendar(cal_window, selectmode='day', date_pattern='yyyy-mm-dd')
     cal.pack(pady=20)
 
-    def on_date_select():
+    def open_journal_for_date():
         selected_date = cal.get_date()
-        print(f"You selected: {selected_date}")
+        open_specific_journal(selected_date)
 
-    select_btn = tk.Button(cal_window, text="Check Journal", command=on_date_select)
-    select_btn.pack(pady=10)
+    open_btn = tk.Button(cal_window, text="Open Journal", command=open_journal_for_date)
+    open_btn.pack(pady=10)
 
     
