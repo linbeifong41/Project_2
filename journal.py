@@ -110,6 +110,14 @@ def open_journal_screen():
 
     journal_box = scrolledtext.ScrolledText(top_frame, width=70, height=10, font=("Arial", 12), wrap=tk.WORD)
     journal_box.pack(pady=5)
+
+    tag_label = tk.Label(top_frame, width=50, font=("Arial", 10))
+    tag_label.pack()
+    tag_entry = tk.Entry(top_frame, width=50, font=("Arial", 10))
+    tag_entry.pack(pady=(0, 10))
+
+    status_label = tk.Label(journal_window, text="", bg="#d6d5d5", font=("Arial", 10))
+    status_label.pack()
     
 
     def save_journal():
@@ -126,8 +134,34 @@ def open_journal_screen():
             status_label.config(text="Journal is empty.")
 
 
+    def save_tags_only():
+        tags = tag_entry.get().strip()
+        today = date.today().isoformat()
+        filename = f"journal_{today}.txt"
+
+        if os.path.exists(filename):
+            with open(filename, "r", encoding="utf-8") as file:
+                lines = file.readlines()
+
+            if lines and lines[0].startswith("[TAGS]:"):
+                lines[0] = f"[TAGS]: {tags}\n"
+            
+            else: 
+                lines.insert(0, f"[TAGS]: {tags}\n")
+
+            with open(filename, "w", encoding="utf-8") as file:
+                file.writelines(lines)
+
+            status_label.config(text=f"Tags updated for {filename}")
+            print(f"Updatedtags in {filename}")
+            list_journal_files()
+
+
     save_btn = tk.Button(journal_window, text="Save Entry", bg="#F4F4F4", font=("Arial", 10), command=save_journal)
     save_btn.pack(pady=10)
+
+    save_tags_btn = tk.Button(journal_window, text="Save Tags", bg="#F4F4F4", font=("Arial", 10), command=save_tags_only)
+    save_tags_btn.pack(pady=(0, 10))
 
     status_label = tk.Label(journal_window, text="", bg="#d6d5d5", font=("Arial", 10))
     status_label.pack()
