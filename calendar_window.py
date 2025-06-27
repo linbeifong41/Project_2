@@ -92,11 +92,73 @@ def open_calendar_screen():
         entries = reminders.get(selected_date, [])
         if not entries:
             tk.Label(top, text="No reminders set.").pack()
-        else:
-            for r in entries:
-                text = f"- ({r['type']}) {r['description']}"
-                tk.Label(top, text=text, wraplength=250, justify="left").pack(anchor='w', padx=10)
+            return 
+        
 
+        canvas = tk.Canvas(top)
+        frame = tk.Frame(canvas)
+        scrollbar = tk.Scrollbar(top, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        canvas.create_window((0, 0), window=frame, anchor="nw")
+
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        frame.bind("<Configure>", on_frame_configure)
+
+        for idx, r in enumerate(entries):
+            r_frame = tk.Frame(frame, bd=1, relief="solid", padx=5, pady=5)
+            r_frame.pack(padx=5, pady=5, fill="x")
+
+            text = f"({r['type']}) {r['description']}"
+            tk.Label(r_frame, text=text, wraplength=250, justify="left").pack(anchor='w')
+
+
+            def edit_reminder(i=idx):
+                edit_top = tk.Toplevel(top)
+                edit_top.title("Edit Reminder")
+                edit_top.geometry("300x200")
+
+                tk.Label(edit_top, text="Edit Description:").pack(pady=5)
+                entry = tk.Entry(edit_top, width=30)
+                entry.insert(0, reminders[selected_date][i]['description'])
+                entry.pack(pady=5)
+
+                reminder_type = tk.StringVar(value=reminders[selected_date][i]['type'])
+                tk.Radiobutton(edit_top, text="Assignment", variable=reminder_type, value="assignment").pack()
+                tk.Radiobutton(edit_top, text="Exam", variable=reminder_type, value="exam").pack()
+
+                def save_edit():
+                    reminders[selected_date][i]['description'] = entry.get()
+                    reminders[selected_date][i]['type'] = reminder_type.get()
+                    save_reminders(reminders)
+                    highlight_reminders()
+                    edit_top.destroy()
+                    top.destroy()
+                    view_reminders()
+                
+                tk.Button(edit_top, text="Save Changes", command=save_edit).pack(pady=10)
+
+            
+            def delete_reminder(i=idx):
+                if selected_date in reminders:
+                    del reminders[selected_date][i]
+                    if not reminders[selected_date]:
+                        del reminders[selected_date]
+                    save_reminders(reminders)
+                    highlight_reminders()
+                    top.destroy()
+                    view_reminders()
+            btn_frame = tk.Frame(r_frame)
+            btn_frame.pack(pady=5)
+
+            tk.Button(btn_frame, text="Edit", command=edit_reminder).pack(side="left", padx=5)
+            tk.Button(btn_frame, text="Delete", command=delete_reminder).pack(side="left", padx=5)
 
 
 
@@ -109,3 +171,4 @@ def open_calendar_screen():
     tk.Button(cal_window, text="View Reminders", command=view_reminders).pack(pady=5)
 
     
+
