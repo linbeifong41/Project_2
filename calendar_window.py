@@ -26,6 +26,8 @@ def open_calendar_screen():
     cal_window.geometry("400x400")
     cal_window.configure(bg="#F0FFF0")
 
+    reminders = load_reminders()
+
     label = tk.Label(cal_window, text="select a Date", font=("Arial", 14), bg="#F0FFF0")
     label.pack(pady=10)
 
@@ -54,14 +56,16 @@ def open_calendar_screen():
         entry_desc = tk.Entry(top, width=30)
         entry_desc.pack(pady=5)
 
-        reminder_type = tk.StringVar(value="assignment")
-        tk.Radiobutton(top, text="Assignment", variable=reminder_type, value="assignment").pack()
-        tk.Radiobutton(top, text="Exam", variable=reminder_type, value="exam").pack()
+        tk.Label(top, text="Importance:").pack(pady=5)
+        importance_level = tk.StringVar(value="medium")
+        tk.Radiobutton(top, text="High 🔴", variable=importance_level, value="high").pack()
+        tk.Radiobutton(top, text="Medium 🟡", variable=importance_level, value="medium").pack()
+        tk.Radiobutton(top, text="Low 🟢", variable=importance_level, value="low").pack()
 
 
         def save():
             desc = entry_desc.get()
-            r_type = reminder_type.get()
+            imp = importance_level.get()
 
             if not desc:
                 return 
@@ -70,7 +74,7 @@ def open_calendar_screen():
 
             reminders[selected_date].append({
                 "description" : desc, 
-                "type": r_type
+                "importance": imp
             })
 
             save_reminders(reminders)
@@ -82,6 +86,7 @@ def open_calendar_screen():
         tk.Button(top, text="Save", command=save).pack(pady=10)
 
     def view_reminders():
+        
         selected_date = cal.get_date()
         top = tk.Toplevel(cal_window)
         top.title("Reminders for" + selected_date)
@@ -89,7 +94,9 @@ def open_calendar_screen():
 
         tk.Label(top, text=f"Reminders on {selected_date}:", font=("Arial", 12)).pack(pady=10)
 
-        entries = reminders.get(selected_date, [])
+        importance_order = {"high": 0, "medium": 1, "low": 2}
+        entries = sorted(reminders.get(selected_date, []), key=lambda r: importance_order.get(r.get("importance", "medium")))
+
         if not entries:
             tk.Label(top, text="No reminders set.").pack()
             return 
@@ -115,7 +122,7 @@ def open_calendar_screen():
             r_frame = tk.Frame(frame, bd=1, relief="solid", padx=5, pady=5)
             r_frame.pack(padx=5, pady=5, fill="x")
 
-            text = f"({r['type']}) {r['description']}"
+            text = f"({r['importance'].capitalize()}) {r['description']}"
             tk.Label(r_frame, text=text, wraplength=250, justify="left").pack(anchor='w')
 
 
@@ -129,13 +136,15 @@ def open_calendar_screen():
                 entry.insert(0, reminders[selected_date][i]['description'])
                 entry.pack(pady=5)
 
-                reminder_type = tk.StringVar(value=reminders[selected_date][i]['type'])
-                tk.Radiobutton(edit_top, text="Assignment", variable=reminder_type, value="assignment").pack()
-                tk.Radiobutton(edit_top, text="Exam", variable=reminder_type, value="exam").pack()
+                importance_level = tk.StringVar(value=reminders[selected_date][i].get("importance", "medium"))
+                tk.Label(edit_top, text="Edit Importance:").pack(pady=5)
+                tk.Radiobutton(edit_top, text="High 🔴", variable=importance_level, value="high").pack()
+                tk.Radiobutton(edit_top, text="Medium 🟡", variable=importance_level, value="medium").pack()
+                tk.Radiobutton(edit_top, text="Low 🟢", variable=importance_level, value="low").pack()
 
                 def save_edit():
                     reminders[selected_date][i]['description'] = entry.get()
-                    reminders[selected_date][i]['type'] = reminder_type.get()
+                    reminders[selected_date][i]['importance'] = importance_level.get()
                     save_reminders(reminders)
                     highlight_reminders()
                     edit_top.destroy()
@@ -154,6 +163,8 @@ def open_calendar_screen():
                     highlight_reminders()
                     top.destroy()
                     view_reminders()
+
+                    
             btn_frame = tk.Frame(r_frame)
             btn_frame.pack(pady=5)
 
