@@ -3,6 +3,7 @@ from datetime import date
 from journal import  open_journal_screen
 from tkinter import scrolledtext
 from calendar_window import open_calendar_screen
+from notepad import notepad
 
 
 def log_mood(level):
@@ -29,9 +30,14 @@ journal_button.pack(pady=10)
 calendar_button = tk.Button(root, text="View Calendar", command=open_calendar_screen, font=("Arial", 12))
 calendar_button.pack(pady=10)
 
+button = tk.Button(root, text="Open Notepad", command=notepad, font=("Arial", 12))
+button.pack(pady=10)
+
 
 mood_log_box = scrolledtext.ScrolledText(root, width=40, height=10, font=("Arial",12))
 mood_log_box.pack(pady=10)
+
+
 
 def refresh_logs(): 
     mood_log_box.delete("1.0", tk.END)
@@ -44,6 +50,8 @@ def refresh_logs():
 
 refresh_btn = tk.Button(root, text="Refresh Logs", command=refresh_logs, font=("Arial", 12))
 refresh_btn.pack(pady=5)
+
+
 
 
 root.mainloop()
