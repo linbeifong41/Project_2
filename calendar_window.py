@@ -3,6 +3,7 @@ from tkcalendar import Calendar
 import os
 import json
 from journal import open_specific_journal
+from datetime import datetime, date
 
 
 REMINDER_FILE = "reminders.json"
@@ -34,19 +35,28 @@ def open_calendar_screen():
     cal = Calendar(cal_window, selectmode='day', date_pattern='yyyy-mm-dd')
     cal.pack(pady=20)
 
+    today = date.today()
+    cal.calevent_create(today, "Today", "today")
+    cal.tag_config("today", background="lightgreen", foreground="black")
+
+
     def highlight_reminders():
-        for tag in cal._tags:
-            cal.calevent_remove(tag=tag)
-        for date, entries in reminders.items():
+
+        cal.calevent_remove(tag="reminder")
+
+        for d, entries in reminders.items():
             if entries:
-                cal.calevent_create(date, "Reminder", "reminder")
+                try:
+                    d_date = datetime.strptime(d, "%Y-%m-%d").date()
+                    cal.calevent_create(d_date, "Reminder", "reminder")
+                except Exception:
+                    pass
         cal.tag_config("reminder", background="lightblue", foreground="black")
+
 
     highlight_reminders()
 
     def add_reminder():
-        selected_date = cal.get_date()
-
 
         top = tk.Toplevel(cal_window)
         top.title("Add Reminder")
@@ -64,6 +74,8 @@ def open_calendar_screen():
 
 
         def save():
+
+            selected_date = cal.get_date()
             desc = entry_desc.get()
             imp = importance_level.get()
 
@@ -177,9 +189,45 @@ def open_calendar_screen():
         selected_date = cal.get_date()
         open_specific_journal(selected_date)
 
+    def view_view_all_reminders():
+        top = tk.Toplevel(cal_window)
+        top.title("All Reminders")
+        top.geometry("400x500")
+
+        tk.Label(top, text="All Reminders", font=("Arial", 14)).pacck(pady=10)
+
+        canvas = tk.Canvas(top)
+        frame = tk.Frame(canvas)
+        scrollbar = tk.Scrollbar(top, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        canvas.create_window((0,0), window=frame, anchor="nw")
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        frame.bind("<Configure>", on_frame_configure)
+
+        all_dates = sorted(reminders.keys())
+
+        for d in all_dates:
+            entry_list = reminders[d]
+            for entry in entry_list:
+                r_frame = tk.Frame(frame, bd=1, relief="solid", padx=5, pady=5)
+                r_frame.pack(padx=5, pady=5, fill="x")
+                text = f"{d} - ({entry['importance'].capitalize()}) {entry['describe']}"
+                tk.Label(r_frame, text=text, wraplength=350, justify="left").pack(anchor="w")
+
+
     tk.Button(cal_window, text="Open Journal", command=open_journal_for_date).pack(pady=5)
     tk.Button(cal_window, text="Add Reminder", command=add_reminder).pack(pady=5)
     tk.Button(cal_window, text="View Reminders", command=view_reminders).pack(pady=5)
+
+
+
+    tk.Label(cal_window, text="🟢 = Today 🔵 = Reminder", font=("Arial", 10), bg="#F0FFF0").pack(pady=5)
 
     
 
