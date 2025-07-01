@@ -20,7 +20,6 @@ def save_reminders(data):
 
 
 def open_calendar_screen():
-    reminders = load_reminders()
 
     cal_window = tk.Toplevel()
     cal_window.title("Mind Garden Calendar")
@@ -76,7 +75,7 @@ def open_calendar_screen():
         def save():
 
             selected_date = cal.get_date()
-            desc = entry_desc.get()
+            desc = entry_desc.get().strip()
             imp = importance_level.get()
 
             if not desc:
@@ -183,18 +182,21 @@ def open_calendar_screen():
             tk.Button(btn_frame, text="Edit", command=edit_reminder).pack(side="left", padx=5)
             tk.Button(btn_frame, text="Delete", command=delete_reminder).pack(side="left", padx=5)
 
+        frame.update_idletasks()
+        canvas.config(scrollregion=canvas.bbox("all"))
+
 
 
     def open_journal_for_date():
         selected_date = cal.get_date()
         open_specific_journal(selected_date)
 
-    def view_view_all_reminders():
+    def view_all_reminders():
         top = tk.Toplevel(cal_window)
         top.title("All Reminders")
         top.geometry("400x500")
 
-        tk.Label(top, text="All Reminders", font=("Arial", 14)).pacck(pady=10)
+        tk.Label(top, text="All Reminders", font=("Arial", 14)).pack(pady=10)
 
         canvas = tk.Canvas(top)
         frame = tk.Frame(canvas)
@@ -217,13 +219,17 @@ def open_calendar_screen():
             for entry in entry_list:
                 r_frame = tk.Frame(frame, bd=1, relief="solid", padx=5, pady=5)
                 r_frame.pack(padx=5, pady=5, fill="x")
-                text = f"{d} - ({entry['importance'].capitalize()}) {entry['describe']}"
+                text = f"{d} - ({entry['importance'].capitalize()}) {entry['description']}"
                 tk.Label(r_frame, text=text, wraplength=350, justify="left").pack(anchor="w")
+
+        frame.update_idletasks()
+        canvas.config(scrollregion=canvas.bbox("all"))
 
 
     tk.Button(cal_window, text="Open Journal", command=open_journal_for_date).pack(pady=5)
     tk.Button(cal_window, text="Add Reminder", command=add_reminder).pack(pady=5)
     tk.Button(cal_window, text="View Reminders", command=view_reminders).pack(pady=5)
+    tk.Button(cal_window, text="View All Reminders", command=view_all_reminders).pack(pady=5)
 
 
 
