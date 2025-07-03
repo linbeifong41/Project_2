@@ -18,15 +18,16 @@ def notepad():
     text_font_family = tk.StringVar(value="Arial")
     text_font_size = tk.IntVar(value=12)
     text_color = tk.StringVar(value="black")
-
-
     status_var = tk.StringVar(value="Ready")
+
+
     status_bar = tk.Label(root, textvariable=status_var, anchor="w", relief="sunken")
     status_bar.pack(fill="x", side="bottom")
 
 
     text_area = tk.Text(root, undo=True, wrap="word")
     text_area.pack(fill="both", expand=True, side="bottom")
+    text_area.config(font=(text_font_family.get(), text_font_size.get()), fg=text_color.get())
 
 
     
@@ -49,23 +50,19 @@ def notepad():
         try:
             start = text_area.index("sel.first")
             end = text_area.index("sel.last")
+            tag_name = f"color_{color}"
+            
+            if  tag_name not in text_area.tag_names():
+                text_area.tag_config(tag_name, foreground=color)
+            
+            text_area.tag_add(tag_name, start, end)
 
         except tk.TclError:
 
             text_color.set(color)
             text_area.config(fg=color)
-            return
+
         
-        tag_name = f"color_{color}"
-
-        if  tag_name not in text_area.tag_names():
-            text_area.tag_config(tag_name, foreground=color)
-
-        for t in text_area.tag_names():
-            if t.startswith("color"):
-                text_area.tag_remove(t, start, end)
-
-        text_area.tag_add(tag_name, start, end)
 
 
     
@@ -73,54 +70,45 @@ def notepad():
         try:
             start = text_area.index("sel.first")
             end = text_area.index("sel.last")
+            size = text_font_size.get()
+            tag_name = f"font_{family}_{size}"
+            if tag_name not in text_area.tag_names():
+                text_area.tag_config(tag_name, font=(family, size))
+            text_area.tag_add(tag_name, start, end)
 
         except tk.TclError:
 
-            f = (family, text_font_size.get())
-            text_area.config(font=f)
             text_font_family.set(family)
+            text_area.config(font=(family, text_font_size.get()))
+
+
+
+    def  update_font_size(*args):
+        try:
+            size = int(text_font_size.get())
+
+        except ValueError:
             return
-    
-        size = text_font_size.get()
-        tag_name = f"font_{family}_{size}"
 
-        if not tag_name in text_area.tag_names():
-            f = (family, size)
-            text_area.tag_config(tag_name, font=f)
-
-        for t in text_area.tag_names():
-            if t.startswith("font_"):
-             text_area.tag_remove(t, start, end)
-
-        text_area.tag_add(tag_name, start, end)
-
-
-    def  update_font_size(size):
+        family = text_font_family.get()
+        tag_name = f"font_{family}_{size}" 
+        
         try:
             start = text_area.index("sel.first")
             end = text_area.index("sel.last")
 
-        except tk.TclError:
-             f = (text_font_family.get(), int(size))   
-             text_area.config(font=f)  
-             text_font_size.set(int(size))   
-             return
-        
-        family = text_font_family.get()
-        tag_name = f"font_{family}_{size}"
-        if not tag_name in text_area.tag_names():
-            f= (family, int(size))
-            text_area.tag_config(tag_name, font=f)
+            for tag in text_area.tag_names():
+                    if tag.startswith("font_"):
+                        text_area.tag_remove(tag, start, end)
 
-        
-        for t in text_area.tag_names():
-            if t.startswith("font_"):
-                text_area.tag_remove(t, start, end)
+            if not tag_name in text_area.tag_names():
+                text_area.tag_config(tag_name, font=(family, size))
+            text_area.tag_add(tag_name, start, end)
 
-        text_area.tag_add(tag_name, start, end)
-            
 
-    text_area.config(font=(text_font_family.get(), text_font_size.get()))
+        except tk.TclError:     
+            family = text_font_family.get()
+            text_font_size.set(size)       
 
 
     control_frame = tk.Frame(root)
@@ -131,8 +119,10 @@ def notepad():
     font_family_menu.pack(side="left", padx=5, pady=5)
 
 
-    size_spin = tk.Spinbox(control_frame, from_=6, to=72, textvariable=text_font_size, command=lambda: update_font_size(text_font_size.get()), width=4)
+    size_spin = tk.Spinbox(control_frame, from_=6, to=72, textvariable=text_font_size, command=update_font_size, width=4)
     size_spin.pack(side="left", padx=5)
+
+    text_font_size.trace_add("write", update_font_size)
 
     
     colors = ["black", "red", "green", "blue", "orange", "purple", "brown", "gray"]
