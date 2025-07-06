@@ -2,6 +2,8 @@ import tkinter as tk
 
 from tkinter import filedialog, messagebox, font
 
+from spellchecker import SpellChecker
+
 import os
 
 
@@ -56,36 +58,71 @@ def notepad():
     size_spin.pack(side="left", padx=5)
 
 
+    def generate_tag_with(weight=None, slant=None):
+        return f"style_{current_style['family']}_{current_style['size']}_" \
+        f"{weight or current_style['weight']}_" \
+        f"{slant or current_style['slant']}_" \
+        f"{current_style['color']}" 
+    
+    def register_tag_with(tag, weight=None, slant=None):
+        font_config = font.Font(
+            family=current_style["family"],
+            size=current_style["size"],
+            weight=weight or current_style["weight"],
+            slant=slant or current_style["slant"]
+        )
+
+        text_area.tag_config(tag, font=font_config, foreground=current_style["color"])
+
+
 
     def toggle_bold():
-        current_style["weight"] = "bold" if current_style["weight"] == "normal" else "normal"
 
         try:
             start = text_area.index("sel.first")
             end = text_area.index("sel.last")
-            tag = generate_current_tag()
-            if tag not in text_area.tag_names():
-                register_current_tag(tag)
-            text_area.tag_add(tag, start, end)
-        except tk.TclError:
 
-            app_font.config(weight=current_style["weight"])
+        except tk.TclError:
+            return 
+        
+        current_weight = current_style["weight"]
+        new_weight = "bold" if current_style["weight"] == "normal" else "normal"
+
+        tag = generate_tag_with(weight=new_weight)
+        if tag not in text_area.tag_names():
+
+            register_tag_with(tag, weight=new_weight)
+
+        old_tag = generate_tag_with(weight=current_weight)
+        text_area.tag_remove(old_tag, start, end)
+
+        text_area.tag_add(tag, start, end)
+        current_style["weight"] = new_weight
 
     
     def toggle_italics():
-        current_style["slant"] = "italic" if current_style["slant"] == "roman" else "roman"
 
         try:
             start = text_area.index("sel.first")
             end = text_area.index("sel.last")
-            tag = generate_current_tag()
-            if tag not in text_area.tag_names():
-                register_current_tag(tag)
-            text_area.tag_add(tag, start, end)
-            
+        
         except tk.TclError:
+            return 
+        
+        current_slant = current_style["slant"]
+        new_slant = "italic" if current_style["slant"] == "roman" else "roman"
 
-            app_font.config(slant=current_style["slant"])
+        tag = generate_tag_with(slant=new_slant)
+
+        if tag not in text_area.tag_names():
+            register_tag_with(tag, slant=new_slant)
+        
+        old_tag = generate_tag_with(slant=current_slant)
+        text_area.tag_remove(old_tag, start, end)
+
+        text_area.tag_add(tag, start, end)
+        current_style["slant"] = new_slant
+            
 
 
     bold_btn = tk.Button(control_frame, text="B", font=("Arial", 10, "bold"), width=2, command=toggle_bold)
