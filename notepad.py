@@ -4,7 +4,13 @@ from tkinter import filedialog, messagebox, font
 
 from spellchecker import SpellChecker
 
+import re
+
+from tkinter import Menu
+
 import os
+
+spell = SpellChecker()
 
 
 def notepad():
@@ -173,6 +179,68 @@ def notepad():
 
     status_bar = tk.Label(root, textvariable=status_var, anchor="w", relief="sunken")
     status_bar.pack(fill="x", side="bottom")
+
+
+    text_area.tag_configure("misspelled", underline=True, underlinefg="lightblue")
+
+
+    def highlight_misspellings(event=None):
+
+        text_area.tag_remove("misspelled", "1.0", tk.END)
+        content = text_area.get("1.0", "end-1c")
+
+        words = re.finditer(r'\b\w+\b', content)
+
+        for match in words:
+            word = match.group()
+
+            if word.lower()in spell.known([word]):
+                start_index = f"1.0 + {match.start()}c"
+                end_index = f"1.0 + {match.end()}c"
+                text_area.tag_add("misspelled", start_index, end_index)
+
+    text_area.bind("<KeyRelease>", lambda e: [autosave(), highlight_misspellings()])
+
+
+
+
+    def replace_word(start, end, replacement):
+
+        text_area.delete(start, end)
+        text_area.insert(start, replacement)
+        highlight_misspellings()
+
+
+    def show_suggestions(event):
+
+        index = text_area.index(f"@{event.x},{event.y}")
+        word_start = text_area.index(f"{index} wordstart")
+        word_end = text_area.index(f"{index} wordend")
+        word = text_area.get(word_start, word_end)
+
+        if word.lower() not in spell.unknown([word]):
+            return
+
+        suggestions = list(spell.candidates(word))
+        if not suggestions:
+            return
+
+        menu = Menu(text_area, tearoff=0)
+        for suggestion in suggestions[:5]:
+
+            menu.add_command(label=suggestion, command=lambda s=suggestion: replace_word(word_start, word_end, s))
+            menu.add_separator()
+            menu.add_command(label="Ignore", command=lambda: text_area.tag_remove("misspelled", word_start, word_end))
+
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+
+        finally:
+            menu.grab_release()
+
+    text_area.bind("<Button-3>", show_suggestions)
+        
+
 
 
     current_style = {
