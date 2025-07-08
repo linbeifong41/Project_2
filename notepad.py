@@ -181,7 +181,7 @@ def notepad():
     status_bar.pack(fill="x", side="bottom")
 
 
-    text_area.tag_configure("misspelled", underline=True, underlinefg="lightblue")
+    text_area.tag_configure("misspelled", underline=True, foreground="red")
 
 
     def highlight_misspellings(event=None):
@@ -189,17 +189,22 @@ def notepad():
         text_area.tag_remove("misspelled", "1.0", tk.END)
         content = text_area.get("1.0", "end-1c")
 
-        words = re.finditer(r'\b\w+\b', content)
+        words = list(re.finditer(r'\b\w+\b', content))
+        misspelled = spell.unknown([match.group() for match in words])
 
         for match in words:
             word = match.group()
 
-            if word.lower()in spell.known([word]):
+            if word.lower() in misspelled:
                 start_index = f"1.0 + {match.start()}c"
                 end_index = f"1.0 + {match.end()}c"
                 text_area.tag_add("misspelled", start_index, end_index)
 
-    text_area.bind("<KeyRelease>", lambda e: [autosave(), highlight_misspellings()])
+    def schedule_spellcheck(event=None):
+        root.after_idle(highlight_misspellings)
+        autosave()
+
+    text_area.bind("<KeyRelease>", schedule_spellcheck)
 
 
 
@@ -229,8 +234,9 @@ def notepad():
         for suggestion in suggestions[:5]:
 
             menu.add_command(label=suggestion, command=lambda s=suggestion: replace_word(word_start, word_end, s))
-            menu.add_separator()
-            menu.add_command(label="Ignore", command=lambda: text_area.tag_remove("misspelled", word_start, word_end))
+
+        menu.add_separator()
+        menu.add_command(label="Ignore", command=lambda: text_area.tag_remove("misspelled", word_start, word_end))
 
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -327,6 +333,7 @@ def notepad():
         current_file[0] = None
         root.title("Simple Notepad")
         status_var.set("New File")
+        highlight_misspellings()
 
     def open_file():
         file_path = filedialog.askopenfilename(
@@ -342,6 +349,7 @@ def notepad():
                 current_file[0] = file_path
                 root.title(f"Simple Notepad - {os.path.basename(file_path)}")
                 status_var.set(f"Opened {file_path}")
+                highlight_misspellings()
 
     def save_file():
         if current_file[0]:
