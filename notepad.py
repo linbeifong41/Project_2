@@ -184,6 +184,11 @@ def notepad():
     text_area.tag_configure("misspelled", underline=True, foreground="red")
 
 
+
+    def index_from_offset(offset):
+        return text_area.index(f"1.0 + {offset}c")
+    
+
     def highlight_misspellings(event=None):
 
         text_area.tag_remove("misspelled", "1.0", tk.END)
@@ -196,17 +201,9 @@ def notepad():
             word = match.group()
 
             if word.lower() in misspelled:
-                start_index = f"1.0 + {match.start()}c"
-                end_index = f"1.0 + {match.end()}c"
+                start_index = index_from_offset(match.start())
+                end_index = index_from_offset(match.end())
                 text_area.tag_add("misspelled", start_index, end_index)
-
-    def schedule_spellcheck(event=None):
-        root.after_idle(highlight_misspellings)
-        autosave()
-
-    text_area.bind("<KeyRelease>", schedule_spellcheck)
-
-
 
 
     def replace_word(start, end, replacement):
@@ -314,17 +311,20 @@ def notepad():
 
     text_font_size.trace_add("write", lambda *a: update_font_size())
 
-    def autosave(event=None):
+    def autosave_and_highlight(event=None):
         if current_file[0]:
             try:
                 with open(current_file[0], "w", encoding="utf-8") as f:
                     f.write(text_area.get(1.0, tk.END))
                 status_var.set("Autosaved")
+                root.after(2000, lambda: status_var.set("Ready"))
 
             except Exception as e:
                 status_var.set(f"Autosave failed: {e}")
 
-    text_area.bind("<KeyRelease>", autosave)
+        root.after(100, highlight_misspellings)
+
+    text_area.bind("<KeyRelease>", autosave_and_highlight)
 
 
 
@@ -333,7 +333,7 @@ def notepad():
         current_file[0] = None
         root.title("Simple Notepad")
         status_var.set("New File")
-        highlight_misspellings()
+        
 
     def open_file():
         file_path = filedialog.askopenfilename(
