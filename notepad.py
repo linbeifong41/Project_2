@@ -4,6 +4,8 @@ from tkinter import filedialog, messagebox, font
 
 from spellchecker import SpellChecker
 
+import language_tool_python 
+
 import re
 
 from tkinter import Menu
@@ -11,6 +13,10 @@ from tkinter import Menu
 import os
 
 spell = SpellChecker()
+
+tool = language_tool_python.LanguageTool("en US")
+
+ignored_words = set()
 
 
 def notepad():
@@ -200,6 +206,9 @@ def notepad():
         for match in words:
             word = match.group()
 
+            if word.lower() in ignored_words:
+                continue
+
             if word.lower() in misspelled:
                 start_index = index_from_offset(match.start())
                 end_index = index_from_offset(match.end())
@@ -233,7 +242,15 @@ def notepad():
             menu.add_command(label=suggestion, command=lambda s=suggestion: replace_word(word_start, word_end, s))
 
         menu.add_separator()
-        menu.add_command(label="Ignore", command=lambda: text_area.tag_remove("misspelled", word_start, word_end))
+        menu.add_command(label="Ignore", command=lambda: (ignored_words.add(word.lower()), text_area.tag_remove("misspelled", word_start, word_end)))
+
+        content = text_area.get("1.0", "end-1c")
+        offset = text_area.count("1.0", index, "chars")[0]
+        grammar_matches = [m or m in tool.check(content) if m.offset <= offset < m.offset + m.errorLength]
+
+        for match in grammar_matches:
+            gstart = index_from_offset(match.offset)
+            gend = index_from_offset(match.offset + match.errorLemgth)
 
         try:
             menu.tk_popup(event.x_root, event.y_root)
