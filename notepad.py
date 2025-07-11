@@ -4,7 +4,7 @@ from tkinter import filedialog, messagebox, font
 
 from spellchecker import SpellChecker
 
-import language_tool_python 
+from language_tool_python import LanguageTool
 
 import re
 
@@ -14,9 +14,11 @@ import os
 
 spell = SpellChecker()
 
-tool = language_tool_python.LanguageTool("en US")
+tool = LanguageTool('eng-US')
 
 ignored_words = set()
+
+ignored_grammar_offsets = set()
 
 
 def notepad():
@@ -195,9 +197,11 @@ def notepad():
         return text_area.index(f"1.0 + {offset}c")
     
 
-    def highlight_misspellings(event=None):
+    def highlight_misspellings_and_grammar(event=None):
 
         text_area.tag_remove("misspelled", "1.0", tk.END)
+        text_area.tag_remove("grammar", "1.0", tk.END)
+
         content = text_area.get("1.0", "end-1c")
 
         words = list(re.finditer(r'\b\w+\b', content))
@@ -214,12 +218,22 @@ def notepad():
                 end_index = index_from_offset(match.end())
                 text_area.tag_add("misspelled", start_index, end_index)
 
+        matches = tool.check(content)
+        for match in matches:
+            
+            if match.offset in ignored_grammar_offsets:
+                continue
+
+            start = index_from_offset(match.offset)
+            end = index_from_offset(match.offset + match.errorLength)
+            text_area.tag_add("grammar", start, end)
+
 
     def replace_word(start, end, replacement):
 
         text_area.delete(start, end)
         text_area.insert(start, replacement)
-        highlight_misspellings()
+        highlight_misspellings_and_grammar()
 
 
     def show_suggestions(event):
@@ -229,29 +243,31 @@ def notepad():
         word_end = text_area.index(f"{index} wordend")
         word = text_area.get(word_start, word_end)
 
-        if word.lower() not in spell.unknown([word]):
-            return
-
-        suggestions = list(spell.candidates(word))
-        if not suggestions:
-            return
-
-        menu = Menu(text_area, tearoff=0)
-        for suggestion in suggestions[:5]:
-
-            menu.add_command(label=suggestion, command=lambda s=suggestion: replace_word(word_start, word_end, s))
-
-        menu.add_separator()
-        menu.add_command(label="Ignore", command=lambda: (ignored_words.add(word.lower()), text_area.tag_remove("misspelled", word_start, word_end)))
-
         content = text_area.get("1.0", "end-1c")
         offset = text_area.count("1.0", index, "chars")[0]
-        grammar_matches = [m or m in tool.check(content) if m.offset <= offset < m.offset + m.errorLength]
 
-        for match in grammar_matches:
-            gstart = index_from_offset(match.offset)
-            gend = index_from_offset(match.offset + match.errorLemgth)
+        menu = Menu(text_area, tearoff=0)
 
+
+        if word.lower()  in spell.unknown([word]):
+
+            for suggestion in spell.candidates(word):
+                menu.add_command(label=suggestion, command=lambda s=suggestion: replace_word(word_start, word_end, s))
+            menu.add_separator()
+            menu.add_command(label="Ignore Spelling", command=lambda: (ignored_words.add(word.lower()), text_area.tag_remove("misspelled", word_start, word_end)))
+
+        matches = tool.check(content)
+
+        for match in matches:
+            if match.offset <= offset < match.offset + match.errorLength:
+                start = index_from_offset(match.offset)
+                end = index_from_offset(match.offset + match.errorLength)
+                for rep in match.replacements[:5]:
+                    menu.add_command(label=f"Grammar: {rep}", command=lambda r=rep, s=start, e=end: replace_word(s, e, r))
+                menu.add_command(label="Ignore Grammar", command=lambda o=match.offset: ignored_grammar_offsets.add(0))
+                break
+
+       
         try:
             menu.tk_popup(event.x_root, event.y_root)
 
@@ -339,7 +355,7 @@ def notepad():
             except Exception as e:
                 status_var.set(f"Autosave failed: {e}")
 
-        root.after(100, highlight_misspellings)
+        root.after(100, highlight_misspellings_and_grammar)
 
     text_area.bind("<KeyRelease>", autosave_and_highlight)
 
@@ -366,7 +382,7 @@ def notepad():
                 current_file[0] = file_path
                 root.title(f"Simple Notepad - {os.path.basename(file_path)}")
                 status_var.set(f"Opened {file_path}")
-                highlight_misspellings()
+                highlight_misspellings_and_grammar()
 
     def save_file():
         if current_file[0]:
