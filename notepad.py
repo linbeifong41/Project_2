@@ -12,9 +12,11 @@ from tkinter import Menu
 
 import os
 
+import json
+
 spell = SpellChecker()
 
-tool = LanguageTool('eng-US')
+tool = LanguageTool('en-US')
 
 ignored_words = set()
 
@@ -190,6 +192,21 @@ def notepad():
 
 
     text_area.tag_configure("misspelled", underline=True, foreground="red")
+
+    text_area.tag_configure("grammar", underline=True, foreground="light blue")
+
+
+    todo_frame = tk.Frame(root, bd=2, relief="groove", width=200)
+    todo_frame.pack(side="right", fill="y", padx=5, pady=5)
+
+    tk.Label(todo_frame, text="To-Do List", font=("Arial", 12, "bold")).pack(pady=(5, 0))
+
+    task_var = tk.StringVar()
+
+    task_entry = tk.Entry(todo_frame, textvariable=task_var)
+    task_entry.pack(padx=5, pady=5, fill="x")
+
+    tasks= []
 
 
 
