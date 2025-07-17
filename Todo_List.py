@@ -56,13 +56,43 @@ def todo_list():
 
     search_var = tk.StringVar()
 
+    def add_subtask(task_index):
+        subtask_text = simpledialog.askstring("New Subtask", "Enter subtask:")
+        if subtask_text:
+            if "subtasks" not in tasks[task_index]:
+                tasks[task_index]["subtasks"] = []
+            tasks[task_index]["subtasks"].append({"text": subtask_text, "done": False})
+
+            save_tasks()
+            render_tasks()
+
     def render_tasks():
         for widget in task_list_frame.winfo_children():
             widget.destroy()
 
         selected_filter = filter_var.get()
 
-        for i, task in enumerate(tasks):
+        display_tasks = tasks.copy()
+        selected_sort = sort_var.get()
+
+        if selected_sort == "Due Date":
+            def parse_due(task):
+                try:
+                    return datetime.strptime(task.get("due", ""), "%Y-%m-%d %H:%M")
+                except:
+                    return datetime.max
+            display_tasks.sort(key=parse_due)
+
+        elif selected_sort == "Category":
+            display_tasks.sort(key=lambda t: t.get("category", "").lower())
+
+        elif selected_sort == "Completed":
+            display_tasks.sort(key=lambda t: t["done"])
+
+        elif selected_sort == "Alphabetical (A-Z)":
+            display_tasks.sort(key=lambda t: t.get("text", "").lower())
+
+        for i, task in enumerate(display_tasks):
             if selected_filter != "ALL" and task.get("category", "General") != selected_filter:
                 continue
 
@@ -77,9 +107,24 @@ def todo_list():
                                 match = False 
                                 break
                         elif term.startswith("date:"): 
-                            if task.get()
+                            due = task.get("due", "")
+                            if not due or not due.startswith(term[5:]):
+                                match = False
+                                break
 
-                    continue
+                        elif term.startswith("time:"):
+                            due = task.get("due", "")
+                            if not due or term[5:] not in due:
+                                match = False
+                                break
+                        else:
+                            combined = f"{task.get('text', '')} {task.get('due', '')} {task.get('category', '')}".lower()
+                            if term not in combined:
+                                match = False
+                                break
+                        
+                    if not match:
+                        continue
 
             task_frame = tk.Frame(task_list_frame, bg="#F5FFFA")
             task_frame.pack(fill="x", pady=2)
@@ -107,6 +152,29 @@ def todo_list():
 
             label = tk.Label(task_frame, text=display_text, anchor="w", bg="#F5FFFA")
             label.pack(side="left", fill="x", expand=True)
+
+            if "subtasks" in task:
+                for j, subtask in enumerate(task["subtasks"]):
+                    subtask_frame = tk.Frame(task_frame, bg="#F5FFFA")
+                    subtask_frame.pack(fill="x", padx=20)
+
+                    sub_var = tk.BooleanVar(value=subtask["done"])
+
+                    def toggle_sub_done(index=i, sub_index=j, var=sub_var):
+                        tasks[index]["subtasks"][sub_index]["done"] = var.get()
+
+                        save_tasks()
+                        render_tasks()
+
+                    tk.Checkbutton(subtask_frame, variable=sub_var, command=toggle_sub_done).pack(side="left")
+
+                    sub_label = tk.Label(subtask_frame, text=subtask["text"], bg="#F5FFFA")
+                    sub_label.pack(side="left", fill="x", expand=True)
+
+                    if subtask["done"]:
+                        sub_label.config(fg="gray", font=("Arial", 10, "overstrike"))
+
+            tk.Button(task_frame, text="subtask", command=lambda i=i: add_subtask(i), bg="#D3FFD3").pack(side="right", padx=2)
 
 
             def delete_task(index=i):
@@ -161,8 +229,7 @@ def todo_list():
             
             tk.Button(task_frame, text="Edit", command=edit_task, width=4, bg="#FFFFCC").pack(side="right", padx=2)
             
-            delete_btn =  tk.Button(task_frame, text="X", fg="red", command=delete_task, width=2)
-            delete_btn.pack(side="right")
+            delete_btn =  tk.Button(task_frame, text="X", fg="red", command=delete_task, width=2).pack(side="right")
         
     def add_task(event=None):
         text = task_var.get().strip()
@@ -176,7 +243,7 @@ def todo_list():
                 due_str = due_date
                 if due_time:
                     due_str += f" {due_time}"
-            task = {"text": text, "done": False, "category": category}
+            task = {"text": text, "done": False, "category": category, "subtasks": []}
             if due_str:
                 task["due"] = due_str
 
@@ -257,8 +324,14 @@ def todo_list():
     search_entry = tk.Entry(search_frame, textvariable=search_var, width=25)
     search_entry.pack(side="left",padx=5)
 
-    clear_btn =tk.Button(search_frame, text="Clear", command=lambda e: search_var.set("", bg="#FFDAB9"))
+    clear_btn = tk.Button(search_frame, text="Clear", command=lambda: search_var.set(""), bg="#FFDAB9")
     clear_btn.pack(side="left", padx=5)
+
+    sort_var = tk.StringVar(value="Default")
+    sort_options = ["Default", "Due Date", "Category", "Completed", "Alphabeticl (A-Z)"]
+    sort_dropdown = ttk.Combobox(window, textvariable=sort_var, values=sort_options, width=25)
+    sort_dropdown.pack(pady=5)
+    sort_dropdown.bind("<<ComboboxSelected>>", lambda e: render_tasks())
 
     def on_search_change(*args):
         render_tasks()
