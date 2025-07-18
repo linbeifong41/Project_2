@@ -56,6 +56,7 @@ def todo_list():
 
     search_var = tk.StringVar()
 
+
     def add_subtask(task_index):
         subtask_text = simpledialog.askstring("New Subtask", "Enter subtask:")
         if subtask_text:
@@ -65,6 +66,34 @@ def todo_list():
 
             save_tasks()
             render_tasks()
+
+    def move_task_up(index):
+        if index > 0:
+            tasks[index - 1], tasks[index] = tasks[index], tasks[index - 1]
+            save_tasks()
+            render_tasks()
+
+    def move_task_down(index):
+        if index < len(tasks) - 1:
+            tasks[index + 1], tasks[index] = tasks[index], tasks[index + 1]
+            save_tasks()
+            render_tasks()
+    
+
+    def move_subtask_up(task_index, sub_index):
+        if sub_index > 0:
+            subtasks = tasks[task_index]["subtasks"]
+            subtasks[sub_index - 1], subtasks[sub_index] = subtasks[sub_index], subtasks[sub_index - 1 ]
+            save_tasks()
+            render_tasks()
+
+    def move_subtask_down(task_index, sub_index):
+        subtasks = tasks[task_index]["subtasks"]
+        if sub_index <len(subtasks) - 1:
+            subtasks[sub_index + 1], subtasks[sub_index] = subtasks[sub_index], subtasks[sub_index + 1 ]
+            save_tasks()
+            render_tasks()
+    
 
     def render_tasks():
         for widget in task_list_frame.winfo_children():
@@ -127,7 +156,14 @@ def todo_list():
                         continue
 
             task_frame = tk.Frame(task_list_frame, bg="#F5FFFA")
-            task_frame.pack(fill="x", pady=2)
+            task_frame.pack(fill="x", pady=(0, 2))
+
+            top_row = tk.Frame(task_frame, bg="#F5FFFA")
+            top_row.pack(fill="x")
+
+            subtask_container = tk.Frame(task_frame, bg="#F5FFFA")
+            subtask_container.pack(fill="x", padx=20)
+
 
             var = tk.BooleanVar(value=task["done"])
 
@@ -137,7 +173,7 @@ def todo_list():
                 save_tasks()
 
 
-            check = tk.Checkbutton(task_frame, variable=var, command=toggle_done)
+            check = tk.Checkbutton(top_row, variable=var, command=toggle_done)
             check.pack(side="left")
 
             display_text = task["text"]
@@ -150,32 +186,13 @@ def todo_list():
             if task["done"]:
                 display_text = f"\u0336".join(display_text) + "\u0336" 
 
-            label = tk.Label(task_frame, text=display_text, anchor="w", bg="#F5FFFA")
+            label = tk.Label(top_row, text=display_text, anchor="w", bg="#F5FFFA")
             label.pack(side="left", fill="x", expand=True)
 
-            if "subtasks" in task:
-                for j, subtask in enumerate(task["subtasks"]):
-                    subtask_frame = tk.Frame(task_frame, bg="#F5FFFA")
-                    subtask_frame.pack(fill="x", padx=20)
-
-                    sub_var = tk.BooleanVar(value=subtask["done"])
-
-                    def toggle_sub_done(index=i, sub_index=j, var=sub_var):
-                        tasks[index]["subtasks"][sub_index]["done"] = var.get()
-
-                        save_tasks()
-                        render_tasks()
-
-                    tk.Checkbutton(subtask_frame, variable=sub_var, command=toggle_sub_done).pack(side="left")
-
-                    sub_label = tk.Label(subtask_frame, text=subtask["text"], bg="#F5FFFA")
-                    sub_label.pack(side="left", fill="x", expand=True)
-
-                    if subtask["done"]:
-                        sub_label.config(fg="gray", font=("Arial", 10, "overstrike"))
-
-            tk.Button(task_frame, text="subtask", command=lambda i=i: add_subtask(i), bg="#D3FFD3").pack(side="right", padx=2)
-
+            tk.Button(top_row, text="subtask", command=lambda i=i: add_subtask(i), bg="#D3FFD3").pack(side="right", padx=2)
+            
+            tk.Button(top_row, text="↑", command=lambda i=i: move_task_up(i)).pack(side="right", padx=1)
+            tk.Button(top_row, text="↓", command=lambda i=i: move_task_down(i)).pack(side="right")
 
             def delete_task(index=i):
                 tasks.pop(index)
@@ -223,19 +240,64 @@ def todo_list():
                     render_tasks()
                     popup.destroy()
 
-
                 tk.Button(popup, text="Save", command=save_edit, bg="#90EE90").pack(pady=10)
                 tk.Button(popup, text="Cancel", command=popup.destroy, bg="#FFC0CB").pack(pady=5)
             
-            tk.Button(task_frame, text="Edit", command=edit_task, width=4, bg="#FFFFCC").pack(side="right", padx=2)
+            tk.Button(top_row, text="Edit", command=edit_task, width=4, bg="#FFFFCC").pack(side="right", padx=2)
             
-            delete_btn =  tk.Button(task_frame, text="X", fg="red", command=delete_task, width=2).pack(side="right")
+            delete_btn =  tk.Button(top_row, text="X", fg="red", command=delete_task, width=2).pack(side="right")
+
+            if "subtasks" in task:
+                for j, subtask in enumerate(task["subtasks"]):
+                    subtask_frame = tk.Frame(subtask_container, bg="#F5FFFA")
+                    subtask_frame.pack(fill="x", padx=1, pady=1)
+
+                    sub_var = tk.BooleanVar(value=subtask["done"])
+
+                    def toggle_sub_done(index=i, sub_index=j, var=sub_var):
+                        tasks[index]["subtasks"][sub_index]["done"] = var.get()
+
+                        save_tasks()
+                        render_tasks()
+
+                    tk.Checkbutton(subtask_frame, variable=sub_var, command=toggle_sub_done).pack(side="left")
+
+                    if subtask.get("editing"):
+
+                        sub_text_var = tk.StringVar(value=subtask["text"])
+                        entry = tk.Entry(subtask_frame, textvariable=sub_text_var, font=("Arial", 10))
+                        entry.pack(side="left", fill="x", expand=True)
+                        sub_label = tk.Label(subtask_frame, textvariable=sub_text_var, relief="flat", bg="#F5FFFA", borderwidth=0, font=("Arial", 10))
+                        sub_label.pack(side="left", fill="x", expand=True, padx=(2, 5))
+
+                        save_btn = tk.Button(subtask_frame, text="✓", command=lambda i=i, j=j, var=sub_text_var: save_subtask(i, j, var), bg="#DFFFD6", width=2, height=1, padx=1, pady=1)
+                        save_btn.pack(side="right", padx=1)
+
+                    else:
+                        label = tk.Label(subtask_frame, text=subtask["text"], bg="#F5FFFA", anchor="w", font=("Arial", 10))
+                        label.pack(side="left", fill="x", expand=True)
+
+                        tk.Button(subtask_frame, text="↑", width=2, command=lambda i=i, j=j: move_subtask_up(i, j)).pack(side="right", padx=1)
+                        tk.Button(subtask_frame, text="↓", width=2, command=lambda i=i, j=j: move_subtask_down(i, j)).pack(side="right", padx=1)
+
+                        if subtask["done"]:
+                            sub_label.config(fg="gray", font=("Arial", 10, "overstrike"))
+
+                        edit_btn = tk.Button(subtask_frame, text="edit", command=lambda i=i, j=j: toggle_subtask_edit(i, j), 
+                                             bg="#E6E6FA", width=2, height=1, padx=1, pady=1)
+                        edit_btn.pack(side="right", padx=1)
+                    
+                    del_btn = tk.Button(
+                        subtask_frame, text="Del", command=lambda i=i, j=j: delete_subtask(i, j),
+                              bg="#FFD6D6", width=2, height=1, padx=1, pady=1).pack(side="right", padx=1)
+
         
     def add_task(event=None):
         text = task_var.get().strip()
         due_date = date_var.get().strip()
         due_time = time_var.get().strip()
         category = category_var.get().strip()
+
 
         if text:
             due_str = ""
@@ -254,6 +316,21 @@ def todo_list():
             save_tasks()
             render_tasks()
             update_filter_options()
+
+    def save_subtask(task_index, sub_index, var):
+        tasks[task_index]["subtasks"][sub_index]["text"] = var.get()
+        tasks[task_index]["subtasks"][sub_index]["editing"] = False 
+        save_tasks()
+        render_tasks()
+
+    def delete_subtask(task_index,sub_index):
+        tasks[task_index]["subtasks"].pop(sub_index)
+        save_tasks()
+        render_tasks()
+
+    def toggle_subtask_edit(task_index, subtask_index):
+        tasks[task_index]["subtasks"][subtask_index]["editing"] = True
+        render_tasks()
 
 
     def add_category():
