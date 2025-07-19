@@ -1,10 +1,10 @@
 import tkinter as tk
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from tkinter import ttk, simpledialog, messagebox
 from tkcalendar import DateEntry
-from datetime import datetime
-from  datetime import date
+
+
 
 
 def todo_list():
@@ -17,6 +17,7 @@ def todo_list():
     date_var = tk.StringVar()
     time_var = tk.StringVar()
     category_var = tk.StringVar(value="General")
+    last_deleted_task = {"task": None, "index": None}
     
     tasks= []
 
@@ -30,10 +31,42 @@ def todo_list():
     def load_tasks():
         try:
             with open("todo.txt", "r", encoding="utf-8") as f:
-                return json.load(f)
-            
+                loaded_tasks = json.load(f)
+           
         except:
             return []
+
+        now = datetime.now()
+        
+        for task in loaded_tasks:
+            repeat = task.get("repeat")
+            due_str = task.get("due", "")
+            was_done = task.get("done", False)
+            if task.get("done") and task.get("repeat") and task.get("due"):
+                try:
+                    due_dt = datetime.strptime(task["due"], "%Y-%m-%d %H:%M")
+                    while due_dt < now:
+                        if task["repeat"] == "Daily":
+                            due_dt += timedelta(days=1)
+                        elif task["repeat"] == "Weekly":
+                            due_dt += timedelta(weeks=1)
+                        elif task["repeat"] == "Monthly":
+                            due_dt += timedelta(days=30)
+                        elif task["repeat"] == "Yearly":
+                            due_dt += timedelta(days=365)
+                        else:
+                            break
+                        
+                    task["due"] = due_dt.strftime("%Y-%m-%d %H:%M")
+                    task["done"] = False
+
+                except Exception as e:
+                    print("Recurring update error:", e)
+
+        return loaded_tasks
+                
+                        
+        
         
     def update_filter_options():
          filter_dropdown['values'] = ["ALL"] + list(set([task.get("category", "General") for task in tasks]))
@@ -55,6 +88,16 @@ def todo_list():
     task_list_frame = scrollable_frame
 
     search_var = tk.StringVar()
+
+
+    def undo_delete():
+        if last_deleted_task["task"] is not None:
+            tasks.insert(last_deleted_task["index"], last_deleted_task["task"])
+            last_deleted_task["task"] = None
+            last_deleted_task["index"] = None
+            
+            save_tasks()
+            render_tasks()
 
 
     def add_subtask(task_index):
@@ -120,6 +163,14 @@ def todo_list():
 
         elif selected_sort == "Alphabetical (A-Z)":
             display_tasks.sort(key=lambda t: t.get("text", "").lower())
+        
+        elif selected_sort == "Priority":
+            display_tasks.sort(key=lambda t: t.get("priority", "").lower())
+
+        elif selected_sort == "Repeated":
+            display_tasks.sort(key=lambda t: t.get("repeat", "").lower())
+
+        
 
         for i, task in enumerate(display_tasks):
             if selected_filter != "ALL" and task.get("category", "General") != selected_filter:
@@ -146,8 +197,16 @@ def todo_list():
                             if not due or term[5:] not in due:
                                 match = False
                                 break
+                        elif term.startswith("priority:"):
+                            if task.get("priority", "medium").lower() != term[9:]:
+                                match = False
+                                break
+                        elif term.startswith("repeat:"):
+                            if task.get("repeat", "none").lower() != term[7:]:
+                                match = False
+                                break
                         else:
-                            combined = f"{task.get('text', '')} {task.get('due', '')} {task.get('category', '')}".lower()
+                            combined = f"{task.get('text', '')} {task.get('due', '')} {task.get('category', ''), {task.get('priority', '')}, {task.get('repeat', '')}}".lower()
                             if term not in combined:
                                 match = False
                                 break
@@ -169,8 +228,38 @@ def todo_list():
 
             def toggle_done(index=i, var=var):
                 tasks[index]["done"] = var.get()
+
+                if tasks[index]["done"]:
+                    tasks[index]["comlpeted_date"] = datetime.today().date().isoformat()
+                else:
+                    tasks[index].pop("completed_date", None)
+
+                if var.get() and tasks[index].get("repeat") != None:
+                    try:
+                        due_str = tasks[index].get("due", "")
+                        if due_str:
+                            due_dt = datetime.strptime(due_str, "%Y-%m-%d %H:%M")
+
+                            if tasks[index]["repeat"] == "Daily":
+                                new_due = due_dt + timedelta(days=1)
+                            elif tasks[index]["repeat"] == "Weekly":
+                                new_due = due_dt + timedelta(weeks=1)
+                            elif tasks[index]["repeat"] == "Monthly":
+                                new_due = due_dt + timedelta(days=30)
+                            elif tasks[index]["repeat"] == "Yearly":
+                                new_due = due_dt + timedelta(days=365)
+                            else: 
+                                new_due = None
+
+                            if new_due:
+                                tasks[index]["due"] = new_due.strftime("%Y-%m-%d %H:%M")
+                                tasks[index]["done"] = False
+                    except Exception as e:
+                        print("Reschedule error:", e)
+
+                save_tasks()        
                 render_tasks()
-                save_tasks()
+               
 
 
             check = tk.Checkbutton(top_row, variable=var, command=toggle_done)
@@ -186,7 +275,28 @@ def todo_list():
             if task["done"]:
                 display_text = f"\u0336".join(display_text) + "\u0336" 
 
-            label = tk.Label(top_row, text=display_text, anchor="w", bg="#F5FFFA")
+            if "priority" in task:
+                display_text += f"({task['priority']})"
+
+            over_due = False
+            if "due" in task and  task["due"]:
+                try:
+                    due_dt = datetime.strptime(task["due"], "%Y-%m-%d %H:%M")
+                    if due_dt < datetime.now() and not task["done"]:
+                        over_due = True
+                except:
+                    pass
+
+            priority = task.get("priority", "Medium")
+            priority_color = {
+                "High": "pink", 
+                "Medium": "orange", 
+                "low": "gray"
+            }.get(priority, "black")
+
+            label_fg = "red" if over_due else priority_color
+
+            label = tk.Label(top_row, text=display_text, anchor="w", bg="#F5FFFA", fg=label_fg)
             label.pack(side="left", fill="x", expand=True)
 
             tk.Button(top_row, text="subtask", command=lambda i=i: add_subtask(i), bg="#D3FFD3").pack(side="right", padx=2)
@@ -195,6 +305,8 @@ def todo_list():
             tk.Button(top_row, text="↓", command=lambda i=i: move_task_down(i)).pack(side="right")
 
             def delete_task(index=i):
+                last_deleted_task["task"] = tasks[index]
+                last_deleted_task["index"] = index
                 tasks.pop(index)
                 render_tasks()
                 save_tasks()
@@ -212,6 +324,8 @@ def todo_list():
                 new_date_var = tk.StringVar(value=current.get("due", "").split()[0] if "due" in current else "")
                 new_time_var = tk.StringVar(value=current.get("due", "").split()[1] if "due" in current and " " in current["due"] else "")
                 new_cat_var = tk.StringVar(value=current.get("category", "General"))
+                new_priority_var = tk.StringVar(value=current.get("priority", "Medium"))
+                new_repeat_var = tk.StringVar(value=current.get("repeat", "None"))
 
                 tk.Label(popup, text="Task:", bg="#FAFAD2").pack(anchor="w", padx=10, pady=(10,0))
                 tk.Entry(popup, textvariable=new_text_var, width=30).pack(padx=10)
@@ -224,7 +338,13 @@ def todo_list():
                 ttk.Combobox(popup, textvariable=new_time_var, values=generate_time_options(), width=20).pack(padx=10)
 
                 tk.Label(popup, text="Category:", bg="#FAFAD2").pack(anchor="w", padx=10, pady=(10,0))
-                tk.Entry(popup, textvariable=new_cat_var).pack(padx=10)                
+                tk.Entry(popup, textvariable=new_cat_var).pack(padx=10)
+
+                tk.Label(popup, text="Priority:", bg="#FAFAD2").pack(anchor="w", padx=10, pady=(10,0))
+                ttk.Combobox(popup, textvariable=new_priority_var, values=["Low", "Medium", "High" ], state="readonly", width=20).pack(padx=10)
+
+                tk.Label(popup, text="Repeat:", bg="#FAFAD2").pack(anchor="w", padx=10, pady=(10, 0))   
+                ttk.Combobox(popup, textvariable=new_repeat_var, values=["None", "Daily", "Weekly", "Monthly", "Yearly"], state="readonly", width=20).pack(padx=10)         
 
                 def save_edit():
                     current["text"] = new_text_var.get().strip()
@@ -233,6 +353,8 @@ def todo_list():
                         new_due += f" {new_time_var.get().strip()}"
                     current["due"] = new_due.strip()
                     current["category"] = new_cat_var.get().strip() if new_cat_var.get().strip() else "General"
+                    current["priority"] =  new_priority_var.get()
+                    current["repeat"] = new_repeat_var.get()
 
 
                     save_tasks()
@@ -297,6 +419,7 @@ def todo_list():
         due_date = date_var.get().strip()
         due_time = time_var.get().strip()
         category = category_var.get().strip()
+        priority = priority_var.get().strip()
 
 
         if text:
@@ -305,7 +428,15 @@ def todo_list():
                 due_str = due_date
                 if due_time:
                     due_str += f" {due_time}"
-            task = {"text": text, "done": False, "category": category, "subtasks": []}
+            task = {
+                    "task": text, 
+                    "done": False,
+                    "category": category,
+                    "subtasks": [], 
+                    "priority": priority,
+                    "repeat": repeat_var.get()
+            }
+            
             if due_str:
                 task["due"] = due_str
 
@@ -386,6 +517,19 @@ def todo_list():
 
     tk.Button(input_frame, text="+", command=add_category, bg="#D3FFD3").grid(row=2, column=2, padx=2, sticky="w")
 
+    tk.Label(input_frame, text="Priority", bg="#F5FFFA").grid(row=3, column=0, padx=5, sticky="e")
+
+    priority_var = tk.StringVar(value="Medium")
+    priority_dropdown = ttk.Combobox(input_frame, textvariable=priority_var, values=["High", "Medium", "Low"], width=15)
+    priority_dropdown.grid(row=3, column=1, pady=2, sticky="w")
+
+    
+    tk.Label(input_frame, text="Repeat:", bg="#F5FFFA").grid(row=3, column=2, padx=5, sticky="e")
+    repeat_var = tk.StringVar(value="None")
+    repeat_dropdown = ttk.Combobox(input_frame, textvariable=repeat_var, values=["None", "Daily", "Weekly", "Monthly", "Yearly"], width=10)
+    repeat_dropdown.grid(row=3, column=3, pady=2, sticky="w")
+
+
     add_btn = tk.Button(input_frame, text="Add", command=add_task, bg="#90EE90")
     add_btn.grid(row=2, column=3, pady=10, sticky="e")
 
@@ -405,15 +549,21 @@ def todo_list():
     clear_btn.pack(side="left", padx=5)
 
     sort_var = tk.StringVar(value="Default")
-    sort_options = ["Default", "Due Date", "Category", "Completed", "Alphabeticl (A-Z)"]
+    sort_options = ["Default", "Due Date", "Category", "Completed", "Alphabetical (A-Z)", "Priority", "Repeated"]
     sort_dropdown = ttk.Combobox(window, textvariable=sort_var, values=sort_options, width=25)
     sort_dropdown.pack(pady=5)
     sort_dropdown.bind("<<ComboboxSelected>>", lambda e: render_tasks())
+
+
 
     def on_search_change(*args):
         render_tasks()
 
     search_var.trace_add("write", on_search_change)
+
+    undo_btn = tk.Button(window, text="Undo Delete", bg="#E0FFFF", command=lambda: undo_delete())
+    undo_btn.pack(pady=5)
+    
 
     tasks = load_tasks()
     render_tasks()
