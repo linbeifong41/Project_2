@@ -5,6 +5,7 @@ from tkinter import scrolledtext
 from calendar_window import open_calendar_screen
 from notepad import notepad
 from Todo_List import todo_list
+from study_window import open_study_tools
 
 
 def log_mood(level):
@@ -61,6 +62,9 @@ button.pack(pady=10)
 
 todo_list_btn = tk.Button(content, text="Open To-Do List", command=todo_list, font=("Arial", 12))
 todo_list_btn.pack(pady=10)
+
+study_window_btn = tk.Button(content, text="Open Study Window", command=open_study_tools, font=("Arial", 10))
+study_window_btn.pack(pady=10)
 
 mood_log_box = scrolledtext.ScrolledText(content, width=40, height=10, font=("Arial",12))
 mood_log_box.pack(pady=10)
