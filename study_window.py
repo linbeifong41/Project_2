@@ -2,11 +2,13 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
+from tkcalendar import DateEntry
 import csv
 import random
 import json
 import os
 import winsound
+import datetime
 
 
 
@@ -288,7 +290,7 @@ def save_presets(presets):
 
 custom_presets = load_presets()
 
-def open_preset_editor(parent):
+def open_preset_editor(parent, refresh_preset_menu):
     editor = tk.Toplevel(parent)
     editor.title("Edit Presets")
 
@@ -308,7 +310,7 @@ def open_preset_editor(parent):
         for i, preset in enumerate(custom_presets):
             name_var = tk.StringVar(value=preset["name"])
             duration_var = tk.StringVar(value=preset["duration"])
-            type_var = tk.Stringvar(value=preset["type"])
+            type_var = tk.StringVar(value=preset["type"])
 
             e1 = tk.Entry(editor, textvariable=name_var)
             e1.grid(row=i+1, column=0)
@@ -333,9 +335,13 @@ def open_preset_editor(parent):
             name = name_var.get().strip()
             duration = duration_var.get()
             type_ = type_var.get()
-            if name and duration > 0:
-                new_presets.append({"name": name, "duration": duration, "type": type_})
-
+            try:
+                duration_int = int(duration)
+                if name and duration_int > 0:
+                    new_presets.append({"name": name, "duration": duration_int, "type": type_})
+            except ValueError:
+                continue
+        
         custom_presets.clear()
         custom_presets.extend(new_presets)
         save_presets(custom_presets)
@@ -368,10 +374,19 @@ def setup_pomodoro(frame):
     minutes = [study_duration.get()]
     seconds = [0]
     session_count = [0]
+    completed_study_sessions = [0]
+    last_session_date = [str(datetime.date.today())]
+
 
     start_session = tk.StringVar(value="Study")
 
     is_study_session = [start_session.get() == "Study"]
+
+    def check_new_day():
+        today =str(datetime.date.today())
+        if today != last_session_date[0]:
+            completed_study_sessions[0] = 0
+            last_session_date[0] = today
 
     def load_state():
         if os.path.exists(STATE_FILE):
@@ -389,6 +404,8 @@ def setup_pomodoro(frame):
                 sound_enabled.set(state.get("sound_enabled", True))
                 time_left.set(f"{minutes[0]:02d}:{seconds[0]:02d}")
                 auto_start_next.set(state.get("auto_start_next", False))
+                completed_study_sessions[0] = state.get("completed_sessions", 0)
+                last_session_date[0] = state.get("last_date", str(datetime.date.today()))
 
     def save_state():
         state= {
@@ -402,7 +419,9 @@ def setup_pomodoro(frame):
             "session_count": session_count[0], 
             "running": running[0], 
             "sound_enabled": sound_enabled.get(),
-            "auto_start_next": auto_start_next.get()
+            "auto_start_next": auto_start_next.get(), 
+            "completed_sessions": completed_study_sessions[0], 
+            "last_date": last_session_date[0]
         }
         with open(STATE_FILE, "w") as f:
             json.dump(state, f)
@@ -410,7 +429,7 @@ def setup_pomodoro(frame):
     def apply_preset(name):
         preset = next((p for p in custom_presets if p["name"] == name), None)
         if preset: 
-            minutes[0] = preset["duration"]
+            minutes[0] = int(preset["duration"])
             seconds[0] = 0
             is_study_session[0] = (preset["type"] == "Study")
             time_left.set(f"{minutes[0]:02d}:{seconds[0]:02d}")
@@ -442,6 +461,20 @@ def setup_pomodoro(frame):
 
     def reset_timer():
         running[0] = False
+
+        preset_name = selected_preset.get()
+        built_in_types = {"Study", "Short Break", "Long Break"}
+        if preset_name and preset_name not in built_in_types:
+            preset = next((p for p in custom_presets if p["name"] == preset_name), None)
+            if preset:
+                minutes[0] = int(preset["duration"])
+                seconds[0] = 0
+                is_study_session[0] = (preset["type"] == "Study")
+                time_left.set(f"{minutes[0]:02d}:{seconds[0]:02d}")
+                save_state()
+                return
+        
+
         selected = start_session.get()
 
         if selected == "Study":
@@ -450,17 +483,22 @@ def setup_pomodoro(frame):
         elif selected == "Short Break":
             minutes[0] = short_break_duration.get()
             is_study_session[0] = False
-        else:  
+        elif selected == "Long Break":
             minutes[0] = long_break_duration.get()
             is_study_session[0] = False
+        else:
+            print("Unknown session type:", selected)
 
         seconds[0] = 0
         time_left.set(f"{minutes[0]:02d}:{seconds[0]:02d}")
         save_state()
+        
 
     def update_initial_timer(*args):
         reset_timer()
         save_state()
+
+    
 
     study_duration.trace_add("write", lambda *args: save_state())
     short_break_duration.trace_add("write", lambda *args: save_state())
@@ -468,20 +506,28 @@ def setup_pomodoro(frame):
     sound_enabled.trace_add("write", lambda *args: save_state())
 
     tk.Label(frame, text="Or use preset:").pack()
-    selected_preset = tk.StringVar(value=custom_presets[0]["name"])
-    preset_menu = tk.OptionMenu(frame, selected_preset, *[])
+    selected_preset = tk.StringVar(value="")
+    preset_menu = tk.OptionMenu(frame, selected_preset, *[p["name"] for p in custom_presets])
     preset_menu.pack()
-    refresh_preset_menu()
 
     def refresh_preset_menu():
         menu = preset_menu["menu"]
         menu.delete(0, "end")
+        menu.add_command(label="-- None --", command=lambda: selected_preset.set(""))
         for p in custom_presets:
             menu.add_command(label=p["name"], command=lambda name=p["name"]: selected_preset.set(name))
 
-    selected_preset.trace_add("write", lambda *args: apply_preset(selected_preset.get()))
+    refresh_preset_menu()
 
-    tk.Button(frame, text="Edit Presets", command=lambda: open_preset_editor(frame)).pack(pady=5)
+    def on_preset_change(*args):
+        name = selected_preset.get()
+        if name and name not in {"Study", "Short Break", "Long Break"}:
+            apply_preset(name)
+
+    selected_preset.trace_add("write", on_preset_change)
+
+
+    tk.Button(frame, text="Edit Presets", command=lambda: open_preset_editor(frame, refresh_preset_menu)).pack(pady=5)
 
     start_session.trace_add("write", update_initial_timer)
 
@@ -494,6 +540,17 @@ def setup_pomodoro(frame):
         running[0] = True
         save_state()
         count_down()
+        check_new_day()
+
+    def suggest_long_break():
+        response = messagebox.askyesno(
+            "Take a long break?", 
+            "You've completed 4 study sessions!\nWould you like to take a Long Break?"
+        )
+        if response:
+            selected_preset.set("")
+            start_session.set("Long Break")
+            reset_timer()
         
 
     def stop_timer():
@@ -507,6 +564,13 @@ def setup_pomodoro(frame):
         if minutes[0] == 0 and seconds[0] == 0:
             is_study = is_study_session[0]
             session_count[0] += int(is_study)
+
+            if is_study:
+                completed_study_sessions[0] += 1 
+                if completed_study_sessions[0] % 4 ==0:
+                    suggest_long_break()
+                    return
+                
 
             if is_study:
                 minutes[0] = long_break_duration.get() if session_count[0] % 4 == 0 else short_break_duration.get()
@@ -543,6 +607,213 @@ def setup_pomodoro(frame):
         reset_timer()
 
 
+PROJECT_FILE = "projects.json"
+
+def setup_project_tracker(frame):
+    if os.path.exists(PROJECT_FILE):
+        try:
+            with open(PROJECT_FILE, "r") as f:
+                projects = json.load(f)
+        except Exception as e:
+            print("Error loading project file:", e)
+            projects = []
+    else:
+        projects = []
+
+    def save_projects():
+        with open(PROJECT_FILE, "w") as f:
+            json.dump(projects, f, indent=2)
+
+    top_frame = ttk.Frame(frame)
+    top_frame.pack(fill="x", pady=10, padx=10)
+
+    content_frame = ttk.Frame(frame)
+    content_frame.pack(fill="both", expand=True)
+
+    ttk.Label(top_frame, text="Project Name:").pack(side="left", padx=(0, 5))
+    new_project_entry = ttk.Entry(top_frame, width=20)
+    new_project_entry.pack(side="left", expand=True, fill="x", padx=5)
+
+    ttk.Label(top_frame, text="Due Date:").pack(side="left", padx=(10, 5))
+    due_entry = DateEntry(top_frame, width=12, background='darkblue', foreground='white', 
+                          borderwhidth=2, year=2025, showweeknumbers=False)
+    due_entry.pack(side="left", padx=5)
+
+    ttk.Label(top_frame, text="Category:").pack(side="left", padx=(10, 5))
+    cat_entry = ttk.Entry(top_frame, width=15)
+    cat_entry.pack(side="left", padx=5)
+
+
+    
+    def add_project():
+        name = new_project_entry.get().strip()
+        due_date = due_entry.get().strip()
+        category = cat_entry.get().strip()
+        if name:
+            projects.append({"name": name, "tasks": [], "due": due_date, "category": category})
+            new_project_entry.delete(0, tk.END)
+            due_entry.delete(0, tk.END)
+            cat_entry.delete(0, tk.END)
+            save_projects()
+            refresh_projects()
+
+    ttk.Button(top_frame, text="Add Project", command=add_project).pack(side="right")
+
+    filter_sort_frame = ttk.Frame(frame)
+    filter_sort_frame.pack(fill="x", padx=10)
+
+    ttk.Label(filter_sort_frame, text="Filter by Category:").pack(side="left", padx=(0, 5))
+    filter_var = tk.StringVar()
+    filter_entry = ttk.Entry(filter_sort_frame, textvariable=filter_var, width=15)
+    filter_entry.pack(side="left", padx=(0, 15))
+
+    ttk.Label(filter_sort_frame, text="Sort by:").pack(side="left", padx=(0, 5))
+    sort_var = tk.StringVar(value="None")
+    sort_menu = ttk.Combobox(filter_sort_frame, textvariable=sort_var, state="readonly", width=12,
+                              values=["None", "Due Date ↑", "Due Date ↓", "Name A-Z", "Name Z-A" ] )
+    sort_menu.pack(side="left", padx=(0, 10))
+
+
+    ttk.Button(filter_sort_frame, text="Apply", command=lambda: refresh_projects()).pack(side="left", padx=5)
+    ttk.Button(filter_sort_frame, text="Clear", command=lambda: (filter_var.set(""), sort_var.set("None"), refresh_projects())).pack(side="left")
+
+
+
+
+    editing_index = None
+
+    def refresh_projects():
+        nonlocal editing_index
+        for widget in content_frame.winfo_children():
+            widget.destroy()
+
+        filtered = []
+        category_filter = filter_var.get().strip().lower()
+
+        for proj in projects:
+            if not category_filter or category_filter in proj.get("category", "").lower():
+                filtered.append(proj)
+
+        sort_by = sort_var.get()
+        if sort_by == "Due Date ↑":
+            filtered.sort(key=lambda x: x.get("due", "9999-99-99"))
+        elif sort_by == "Due Date ↓":
+            filtered.sort(key=lambda x: x.get("due", "0000-00-00"), reverse=True)
+        elif sort_by == "Name A-Z":
+            filtered.sort(key=lambda x: x.get("name", "").lower())
+        elif sort_by == "Name Z-A":
+            filtered.sort(key=lambda x: x.get("name", "").lower(), reverse=True)
+
+        if not projects:
+            empty_label = ttk.Label(content_frame, text="No projects yet.\nAdd one above to get started!",
+                            anchor="center", justify="center", font=("Segoe UI", 10))
+            empty_label.pack(pady=20)
+            return
+        elif not filtered:
+            empty_label = ttk.Label(content_frame, text="No matching projects found.", anchor="center", 
+                            justify="center", font=("Segoe UI", 10))
+            empty_label.pack(pady=20)
+            return
+
+        for idx, (real_idx, project) in enumerate([(projects.index(p), p) for p in filtered]):
+            project_frame = ttk.LabelFrame(content_frame, text="", padding=10)
+            project_frame.pack(fill="x", padx=10, pady=5)
+
+            title_row = ttk.Frame(project_frame)
+            title_row.pack(fill="x", pady=2)
+
+            if editing_index == real_idx:
+                name_var = tk.StringVar(value=project["name"])
+                cat_var = tk.StringVar(value=project.get("category", ""))
+
+                name_entry = ttk.Entry(title_row, textvariable=name_var, width=20)
+                name_entry.pack(side="left", padx=(0, 5))
+    
+                due_entry = DateEntry(title_row, width=12, background='darkblue',
+                      foreground='white', borderwidth=2, year=2025, showweeknumbers=False)
+                try:
+                    date_str = project.get("due", "2025-01-01")
+                    due_entry.set_date(datetime.strptime(date_str, "%Y-%m-%d").date())
+                except:
+                    due_entry.set_date(datetime.today())
+
+                cat_entry = ttk.Entry(title_row, textvariable=cat_var, width=12)
+                cat_entry.pack(side="left", padx=(0, 5))
+
+                due_entry.pack(side="left", padx=5)
+
+                def save_name(event=None, i=real_idx):
+                    new_name = name_var.get().strip()
+                    new_due = due_entry.get().strip()
+                    new_cat = cat_var.get().strip()
+                    if new_name:
+                        projects[i]["name"] = new_name
+                        projects[i]["due"] = new_due
+                        projects[i]["category"] = new_cat
+                        save_projects()
+                    nonlocal editing_index
+                    editing_index = None
+                    refresh_projects()
+
+                name_entry.bind("<Return>", save_name)
+                due_entry.bind("<Return>", save_name)
+                cat_entry.bind("<Return>", save_name)
+                ttk.Button(title_row, text="Save", width=5, command=save_name).pack(side="left")
+
+            else:
+                ttk.Label(title_row, text=project["name"], font=("Arial", 12)).pack(side="left", padx=(0, 10))
+                ttk.Button(title_row, text="Edit", width=5, command=lambda i=idx: set_edit(i)).pack(side="left")
+
+                ttk.Label(project_frame, text=f"Due: {project.get('due', 'N/A')}", foreground="gray").pack(anchor="w")
+                ttk.Label(project_frame, text=f"Category: {project.get('category', 'Uncategorized')}", foreground="gray").pack(anchor="w")
+
+            ttk.Button(title_row, text="Delete", width=6,
+                       command=lambda i=idx: (projects.pop(i), save_projects(), refresh_projects())).pack(side="left")
+
+            completed = 0
+            for t_idx, task in enumerate(project.get("tasks", [])):
+                var = tk.BooleanVar(value=task["done"])
+
+                def toggle_done(v=var, p=project, ti=t_idx):
+                    p["tasks"][ti]["done"] = v.get()
+                    save_projects()
+                    refresh_projects()
+
+                cb = tk.Checkbutton(project_frame, text=task["text"], variable=var, command=toggle_done)
+                cb.pack(anchor="w")
+
+                if task["done"]:
+                    completed += 1
+
+            total_tasks = len(project.get("tasks", []))
+            percent = int((completed / total_tasks) * 100) if total_tasks else 0
+
+            progress = ttk.Progressbar(project_frame, length=200, value=percent, maximum=100)
+            progress.pack(pady=5)
+
+            task_row = ttk.Frame(project_frame)
+            task_row.pack(fill="x", pady=5)
+
+            task_entry = ttk.Entry(task_row)
+            task_entry.pack(side="left", padx=5, expand=True, fill="x")
+
+            def add_task(te=task_entry, p=project):
+                text = te.get().strip()
+                if text:
+                    p.setdefault("tasks", []).append({"text": text, "done": False})
+                    save_projects()
+                    refresh_projects()
+
+            ttk.Button(task_row, text="Add Task", command=add_task).pack(side="right")
+
+    def set_edit(index):
+        nonlocal editing_index
+        editing_index = index
+        refresh_projects()
+
+    refresh_projects()
+
+
 def open_study_tools():
     study_winow = tk.Toplevel()
     study_winow.title("Study Tools")
@@ -552,12 +823,13 @@ def open_study_tools():
 
     flashcard_tab = ttk.Frame(tab_control)
     pomodoro_tab = ttk.Frame(tab_control)
+    project_tracker_tab = ttk.Frame(tab_control)
 
     tab_control.add(flashcard_tab, text="Flashcards")
     tab_control.add(pomodoro_tab, text="Pomodoro Timer")
+    tab_control.add(project_tracker_tab, text="Project Tracker")
     tab_control.pack(expand=1, fill="both")
 
     setup_flashcards(flashcard_tab)
     setup_pomodoro(pomodoro_tab)
-
-
+    setup_project_tracker(project_tracker_tab)
