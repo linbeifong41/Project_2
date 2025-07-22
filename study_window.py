@@ -13,6 +13,7 @@ import datetime
 
 
 
+
 SAVE_FILE = "flashcards.json"
 decks = {}
 current_deck = None
@@ -650,7 +651,13 @@ def setup_project_tracker(frame):
         due_date = due_entry.get().strip()
         category = cat_entry.get().strip()
         if name:
-            projects.append({"name": name, "tasks": [], "due": due_date, "category": category})
+            projects.append({
+                "name": name,
+                "tasks": [], 
+                "due": due_date,
+                "category": category,
+                "notes": "", 
+                "attachments": []})
             new_project_entry.delete(0, tk.END)
             due_entry.delete(0, tk.END)
             cat_entry.delete(0, tk.END)
@@ -722,6 +729,47 @@ def setup_project_tracker(frame):
             title_row = ttk.Frame(project_frame)
             title_row.pack(fill="x", pady=2)
 
+            notes_var = tk.StringVar(value=project.get("notes", ""))
+
+            def save_notes(event=None, i=real_idx):
+                projects[i]["notes"] = notes_entry.get("1.0", "end-1c").strip()
+                save_projects()
+
+            notes_label = ttk.Label(project_frame, text="Notes:")
+            notes_label.pack(anchor="w")
+            notes_entry = tk.Text(project_frame, height=3, wrap="word")
+            notes_entry.insert("1.0", notes_var.get())
+            notes_entry.pack(fill="x", pady=(0, 5))
+            notes_entry.bind("<FocusOut>", lambda e, i=real_idx: save_notes(i=i))
+
+            def attach_files(i=real_idx):
+                files = filedialog.askopenfilenames(title="Select files to attach.")
+                if files:
+                    current = projects[i].get("attachments", [])
+                    current.extend(files)
+                    projects[i]["attachments"] = list(set(current))
+                    save_projects()
+                    refresh_projects()
+            ttk.Button(project_frame, text="Attach Files", command=lambda i=real_idx: attach_files(i)).pack(anchor="w")
+
+            attached_files = project.get("attachments", [])
+            if attached_files:
+                attach_label = ttk.Label(project_frame, text="Attach File(s):", font=("Segeo UI", 9, "bold"))
+                attach_label.pack(anchor="w", pady=(5, 0))
+
+                for file_path in attached_files:
+                    file_name = os.path.basename(file_path)
+                    def open_file(path=file_path):
+                        try:
+                            os.startfile(path)
+                        except Exception as e:
+                            messagebox.showerror("Error",f"Could not open file path.\n\n{e}" )
+
+                    link = ttk.Label(project_frame, text=f"• {file_name}", foreground="blue", cursor="hand2")
+                    link.pack(anchor="w", padx=10)
+                    link.bind("<Button-1>", lambda e, p=file_path: open_file(p))
+
+
             if editing_index == real_idx:
                 name_var = tk.StringVar(value=project["name"])
                 cat_var = tk.StringVar(value=project.get("category", ""))
@@ -733,9 +781,9 @@ def setup_project_tracker(frame):
                       foreground='white', borderwidth=2, year=2025, showweeknumbers=False)
                 try:
                     date_str = project.get("due", "2025-01-01")
-                    due_entry.set_date(datetime.strptime(date_str, "%Y-%m-%d").date())
+                    due_entry.set_date(datetime.datetime.strptime(date_str, "%Y-%m-%d").date())
                 except:
-                    due_entry.set_date(datetime.today())
+                    due_entry.set_date(datetime.datetime.today())
 
                 cat_entry = ttk.Entry(title_row, textvariable=cat_var, width=12)
                 cat_entry.pack(side="left", padx=(0, 5))
