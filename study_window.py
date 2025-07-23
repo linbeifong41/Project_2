@@ -628,8 +628,24 @@ def setup_project_tracker(frame):
     top_frame = ttk.Frame(frame)
     top_frame.pack(fill="x", pady=10, padx=10)
 
-    content_frame = ttk.Frame(frame)
-    content_frame.pack(fill="both", expand=True)
+    canvas = tk.Canvas(frame, borderwidth=0, highlightthickness=0)
+    scroll_y = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+    scrollable_frame = ttk.Frame(canvas)
+
+    scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scroll_y.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scroll_y.pack(side="right", fill="y")
+
+    content_frame = scrollable_frame
+    
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
     ttk.Label(top_frame, text="Project Name:").pack(side="left", padx=(0, 5))
     new_project_entry = ttk.Entry(top_frame, width=20)
@@ -688,9 +704,11 @@ def setup_project_tracker(frame):
 
 
     editing_index = None
+    task_editing = {}
 
     def refresh_projects():
         nonlocal editing_index
+        nonlocal task_editing
         for widget in content_frame.winfo_children():
             widget.destroy()
 
@@ -731,16 +749,41 @@ def setup_project_tracker(frame):
 
             notes_var = tk.StringVar(value=project.get("notes", ""))
 
-            def save_notes(event=None, i=real_idx):
-                projects[i]["notes"] = notes_entry.get("1.0", "end-1c").strip()
-                save_projects()
-
             notes_label = ttk.Label(project_frame, text="Notes:")
             notes_label.pack(anchor="w")
+
             notes_entry = tk.Text(project_frame, height=3, wrap="word")
             notes_entry.insert("1.0", notes_var.get())
             notes_entry.pack(fill="x", pady=(0, 5))
-            notes_entry.bind("<FocusOut>", lambda e, i=real_idx: save_notes(i=i))
+
+            notes_typing_after_id = [None]
+
+            def make_notes_handlers(i, entry, timer_ref):
+                def save_notes(event=None, i=real_idx):
+                    projects[i]["notes"] = entry.get("1.0", "end-1c").strip()
+                    save_projects()
+
+                def on_notes_change(event=None):
+                    projects[i]["notes"] = entry.get("1.0", "end-1c").strip()
+                    if timer_ref[0]:
+                        entry.after_cancel(timer_ref[0])
+                    timer_ref[0] = entry.after(1000, save_projects)
+                return save_notes, on_notes_change
+            
+            save_notes_func, on_change_func = make_notes_handlers(real_idx, 
+                                                                  notes_entry, notes_typing_after_id, )
+
+            notes_entry.bind("<KeyRelease>", on_change_func)
+            notes_entry.bind("<FocusOut>", save_notes_func)
+
+
+            def insert_bulletpoint(e=None, widget=None):
+                widget.insert("insert", "• ")
+            
+            bullet_btn = ttk.Button(project_frame, text="• Bullet", width=8, command=lambda w=notes_entry: insert_bulletpoint(widget=w))
+            bullet_btn.pack(anchor="w", pady=(0, 3))
+
+            notes_entry.bind("<Control-b>", lambda e, w=notes_entry: insert_bulletpoint(e, w))
 
             def attach_files(i=real_idx):
                 files = filedialog.askopenfilenames(title="Select files to attach.")
@@ -788,16 +831,29 @@ def setup_project_tracker(frame):
                 cat_entry = ttk.Entry(title_row, textvariable=cat_var, width=12)
                 cat_entry.pack(side="left", padx=(0, 5))
 
+                tag_var = tk.StringVar(value=", ".join(project.get("tags", [])))
+                status_var = tk.StringVar(value=project.get("status", "Not Started"))
+
+                ttk.Entry(title_row, textvariable=tag_var, width=15).pack(side="left", padx=5)
+
+                status_menu = ttk.OptionMenu(title_row, status_var, status_var.get(), "Not Started",
+                                              "In Progress", "Stuck", "Completed")
+                status_menu.pack(side="left", padx=5)
+
                 due_entry.pack(side="left", padx=5)
 
                 def save_name(event=None, i=real_idx):
                     new_name = name_var.get().strip()
                     new_due = due_entry.get().strip()
                     new_cat = cat_var.get().strip()
+                    new_tags = tag_var.get().strip()
+                    new_status = status_var.get().strip()
                     if new_name:
                         projects[i]["name"] = new_name
                         projects[i]["due"] = new_due
                         projects[i]["category"] = new_cat
+                        projects[i]["tags"] = [t.strip() for t in new_tags.split(",") if t.strip()]
+                        projects[i]["status"] = new_status
                         save_projects()
                     nonlocal editing_index
                     editing_index = None
@@ -815,20 +871,84 @@ def setup_project_tracker(frame):
                 ttk.Label(project_frame, text=f"Due: {project.get('due', 'N/A')}", foreground="gray").pack(anchor="w")
                 ttk.Label(project_frame, text=f"Category: {project.get('category', 'Uncategorized')}", foreground="gray").pack(anchor="w")
 
+                tags = project.get("tags", [])
+                if tags:
+                    tag_frame = ttk.Frame(project_frame)
+                    tag_frame.pack(anchor="w", pady=2)
+                    for tag in tags:
+                        lbl = tk.Label(tag_frame, text=tag, bg="#dddddd", fg="black", padx=5, pady=2, relief="groove")
+                        lbl.pack(side="left", padx=2)
+                        
+                        status = project.get("status", "Not Started")
+                        status_colors ={
+                            "Not Started": "gray", 
+                            "In Progress": "blue",
+                            "Stuck": "orange", 
+                            "Completed": "green"
+                        }
+                        status_color = status_colors.get(status, "gray")
+
+                        status_lbl = tk.Label(project_frame, text=status, bg=status_color, fg="white", 
+                                              padx=6, pady=2)
+                        status_lbl.pack(anchor="w", pady=2)
+
+
+
+
             ttk.Button(title_row, text="Delete", width=6,
                        command=lambda i=idx: (projects.pop(i), save_projects(), refresh_projects())).pack(side="left")
-
+                
             completed = 0
+
             for t_idx, task in enumerate(project.get("tasks", [])):
                 var = tk.BooleanVar(value=task["done"])
+
+                task_frame = ttk.Frame(project_frame)
+                task_frame.pack(pady=2, padx=10, fill="x")
+
+                is_editing = task_editing.get((real_idx, t_idx), False)
 
                 def toggle_done(v=var, p=project, ti=t_idx):
                     p["tasks"][ti]["done"] = v.get()
                     save_projects()
                     refresh_projects()
 
-                cb = tk.Checkbutton(project_frame, text=task["text"], variable=var, command=toggle_done)
-                cb.pack(anchor="w")
+                if is_editing:
+                    text_var = tk.StringVar(value=task["text"])
+                    entry = ttk.Entry(task_frame, textvariable=text_var)
+                    entry.pack(side="left", fill="x", expand=True, padx=(0,5))
+
+                    due_var = tk.StringVar(value=task.get("due date", ""))
+                    due_entry = DateEntry(task_frame, textvariable=due_var, width=12, date_pattern="yyyy-mm-dd")
+                    due_entry.pack(side="left", padx=(0, 5))
+
+                    def save_task_text(p=project, ti=t_idx, r_idx=real_idx):
+                        p["tasks"][ti]["text"] = text_var.get().strip()
+                        p["tasks"][ti]["due_date"] = due_var.get().strip()
+                        task_editing[(r_idx, ti)] = False
+                        save_projects()
+                        refresh_projects()
+
+                    entry.bind("<Return>", lambda e: save_task_text())
+                    due_entry.bind("<Return>", lambda e: save_task_text())
+                    ttk.Button(task_frame, text="Save", width=3, command=save_task_text).pack(side="left", padx=2)
+                else:
+                    cb = tk.Checkbutton(task_frame, text=task["text"], variable=var, command=toggle_done)
+                    cb.pack(side="left", anchor="w", padx=(0, 5))
+
+                    if task.get("due_date"):
+                        ttk.Label(task_frame, text=f"Due: {task['due_date']}", foreground="gray").pack(side="left", padx=(0,5))
+
+                    def start_edit(r_idx=real_idx, ti=t_idx):
+                        task_editing[(r_idx, ti)] = True 
+                        refresh_projects()
+                    ttk.Button(task_frame, text="Edit", width=3, command=start_edit).pack(side="left", padx=2)
+
+                def delete_task(p=project, ti=t_idx):
+                    del p["tasks"][ti]
+                    save_projects()
+                    refresh_projects()
+                ttk.Button(task_frame, text="Delete", width=3, command=delete_task).pack(side="left", padx=2)
 
                 if task["done"]:
                     completed += 1
@@ -839,6 +959,8 @@ def setup_project_tracker(frame):
             progress = ttk.Progressbar(project_frame, length=200, value=percent, maximum=100)
             progress.pack(pady=5)
 
+            ttk.Label(project_frame, text=f"{completed} of {total_tasks} tasks complete ({percent}%)").pack()
+
             task_row = ttk.Frame(project_frame)
             task_row.pack(fill="x", pady=5)
 
@@ -848,7 +970,7 @@ def setup_project_tracker(frame):
             def add_task(te=task_entry, p=project):
                 text = te.get().strip()
                 if text:
-                    p.setdefault("tasks", []).append({"text": text, "done": False})
+                    p.setdefault("tasks", []).append({"text": text, "done": False, "due_date": ""})
                     save_projects()
                     refresh_projects()
 
