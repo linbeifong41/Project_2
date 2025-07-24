@@ -3,6 +3,8 @@ from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
 from tkcalendar import DateEntry
+import tkinter.colorchooser as colorchooser
+import tkinter.simpledialog as simpledialog
 import csv
 import random
 import json
@@ -624,6 +626,9 @@ def setup_project_tracker(frame):
     def save_projects():
         with open(PROJECT_FILE, "w") as f:
             json.dump(projects, f, indent=2)
+    
+    tag_filter_var = tk.StringVar()
+    status_filter_var = tk.StringVar()
 
     top_frame = ttk.Frame(frame)
     top_frame.pack(fill="x", pady=10, padx=10)
@@ -635,6 +640,10 @@ def setup_project_tracker(frame):
     scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    def on_canvas_resize(event):
+        canvas.itemconfig("scroll_window", width=event.width)
+    window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", tags="scroll_window")
+    canvas.bind("<Configure>", on_canvas_resize)
     canvas.configure(yscrollcommand=scroll_y.set)
 
     canvas.pack(side="left", fill="both", expand=True)
@@ -660,12 +669,26 @@ def setup_project_tracker(frame):
     cat_entry = ttk.Entry(top_frame, width=15)
     cat_entry.pack(side="left", padx=5)
 
+    ttk.Label(top_frame, text="Tags:").pack(side="left", padx=(10,5))
+    tags_entry = ttk.Entry(top_frame, width=15)
+    tags_entry.pack(side="left", padx=5)
+
+    ttk.Label(top_frame, text="Status:").pack(side="left", padx=(10, 5))
+    status_var = tk.StringVar(value="Not Started")
+    status_menu = ttk.OptionMenu(top_frame, status_var, "Not Started", "In Progress", "Stuck",
+                                                   "Completed")
+    status_menu.pack(side="left", padx=5)
+
+    ttk.Label()
+
 
     
     def add_project():
         name = new_project_entry.get().strip()
         due_date = due_entry.get().strip()
         category = cat_entry.get().strip()
+        tags = [t.strip() for t in tags_entry.get().split(",") if t.strip()]
+        status = status_var.get().strip()
         if name:
             projects.append({
                 "name": name,
@@ -673,10 +696,15 @@ def setup_project_tracker(frame):
                 "due": due_date,
                 "category": category,
                 "notes": "", 
-                "attachments": []})
+                "attachments": [], 
+                "tags": tags, 
+                "status": status
+                })
             new_project_entry.delete(0, tk.END)
             due_entry.delete(0, tk.END)
             cat_entry.delete(0, tk.END)
+            tags_entry.delete(0, tk.END)
+            status_var.set("Not Started")
             save_projects()
             refresh_projects()
 
@@ -689,6 +717,12 @@ def setup_project_tracker(frame):
     filter_var = tk.StringVar()
     filter_entry = ttk.Entry(filter_sort_frame, textvariable=filter_var, width=15)
     filter_entry.pack(side="left", padx=(0, 15))
+
+    ttk.Label(filter_sort_frame, text="Tag Filter:").pack(side="left", padx=(0, 5))
+    ttk.Entry(filter_sort_frame, textvariable=tag_filter_var, width=15).pack(side="left", padx=(0, 10))
+
+    ttk.Label(filter_sort_frame, text="Status Filter:").pack(side="left",padx=(0, 5))
+    ttk.Entry(filter_sort_frame, textvariable=status_filter_var).pack(side="left", padx=(0, 15))
 
     ttk.Label(filter_sort_frame, text="Sort by:").pack(side="left", padx=(0, 5))
     sort_var = tk.StringVar(value="None")
@@ -715,8 +749,15 @@ def setup_project_tracker(frame):
         filtered = []
         category_filter = filter_var.get().strip().lower()
 
+        tag_filter = tag_filter_var.get().strip().lower()
+        status_filter = status_filter_var.get().strip().lower()
+
         for proj in projects:
-            if not category_filter or category_filter in proj.get("category", "").lower():
+            category_match = not category_filter or category_filter in proj.get("category", "").lower()
+            tag_match = not tag_filter or any(tag_filter in tag.lower() for tag in proj.get("tags", []))
+            status_match = not status_filter or status_filter == proj.get("status", "").lower()
+
+            if category_match and tag_match and status_match:
                 filtered.append(proj)
 
         sort_by = sort_var.get()
@@ -742,10 +783,10 @@ def setup_project_tracker(frame):
 
         for idx, (real_idx, project) in enumerate([(projects.index(p), p) for p in filtered]):
             project_frame = ttk.LabelFrame(content_frame, text="", padding=10)
-            project_frame.pack(fill="x", padx=10, pady=5)
+            project_frame.pack(fill="x", padx=10, pady=5, expand=True)
 
             title_row = ttk.Frame(project_frame)
-            title_row.pack(fill="x", pady=2)
+            title_row.pack(fill="x", pady=2, expand=True)
 
             notes_var = tk.StringVar(value=project.get("notes", ""))
 
@@ -816,27 +857,33 @@ def setup_project_tracker(frame):
             if editing_index == real_idx:
                 name_var = tk.StringVar(value=project["name"])
                 cat_var = tk.StringVar(value=project.get("category", ""))
+                tag_var = tk.StringVar(value=", ".join(project.get("tags", [])))
+                status_var = tk.StringVar(value=project.get("status", "Not Started"))
+                
 
                 name_entry = ttk.Entry(title_row, textvariable=name_var, width=20)
-                name_entry.pack(side="left", padx=(0, 5))
+                name_entry.pack(side="left", padx=(0, 5), fill="x", expand=True)
+
+
+                info_row = ttk.Frame(project_frame)
+                info_row.pack(fill="x", padx=5, pady=5)
     
-                due_entry = DateEntry(title_row, width=12, background='darkblue',
+                due_entry = DateEntry(info_row, width=12, background='darkblue',
                       foreground='white', borderwidth=2, year=2025, showweeknumbers=False)
                 try:
                     date_str = project.get("due", "2025-01-01")
                     due_entry.set_date(datetime.datetime.strptime(date_str, "%Y-%m-%d").date())
                 except:
                     due_entry.set_date(datetime.datetime.today())
+                due_entry.pack(side="left", padx=(0, 5))
 
-                cat_entry = ttk.Entry(title_row, textvariable=cat_var, width=12)
+                cat_entry = ttk.Entry(info_row, textvariable=cat_var, width=12)
                 cat_entry.pack(side="left", padx=(0, 5))
 
-                tag_var = tk.StringVar(value=", ".join(project.get("tags", [])))
-                status_var = tk.StringVar(value=project.get("status", "Not Started"))
 
-                ttk.Entry(title_row, textvariable=tag_var, width=15).pack(side="left", padx=5)
+                ttk.Entry(info_row, textvariable=tag_var, width=15).pack(side="left", padx=5)
 
-                status_menu = ttk.OptionMenu(title_row, status_var, status_var.get(), "Not Started",
+                status_menu = ttk.OptionMenu(info_row, status_var, status_var.get(), "Not Started",
                                               "In Progress", "Stuck", "Completed")
                 status_menu.pack(side="left", padx=5)
 
@@ -859,10 +906,13 @@ def setup_project_tracker(frame):
                     editing_index = None
                     refresh_projects()
 
+                ttk.Button(title_row, text="Save", width=5, command=save_name).pack(side="left")
+
                 name_entry.bind("<Return>", save_name)
                 due_entry.bind("<Return>", save_name)
                 cat_entry.bind("<Return>", save_name)
-                ttk.Button(title_row, text="Save", width=5, command=save_name).pack(side="left")
+
+                
 
             else:
                 ttk.Label(title_row, text=project["name"], font=("Arial", 12)).pack(side="left", padx=(0, 10))
@@ -983,6 +1033,144 @@ def setup_project_tracker(frame):
 
     refresh_projects()
 
+PLANNER_DATA_FILE = "study_planner_data.json"
+planner_data = {}
+
+def save_planner_data():
+    with open(PLANNER_DATA_FILE, "w") as f:
+        json.dump(planner_data, f, indent=2)
+
+def load_planner_data():
+    if os.path.exists(PLANNER_DATA_FILE):
+        with open(PLANNER_DATA_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def add_session(day, time_label, cell_label):
+    popup = tk.Toplevel()
+    popup.title("Add Session")
+
+    tk.Label(popup, text=f"{day}, {time_label}", font=("Arial", 12, "bold")).pack(pady=5)
+
+    tk.Label(popup, text="Title:").pack()
+    title_entry = tk.Entry(popup, width=30) 
+    title_entry.pack(pady=2)
+
+    tk.Label(popup, text="Notes:").pack()
+    notes_entry = tk.Text(popup, height=4, width=30)
+    notes_entry.pack(pady=2)
+
+    color_var = tk.StringVar()
+    def choose_color():
+        color = colorchooser.askcolor(title="Pick Color")[1]
+        if color:
+            color_var.set(color)
+    
+    color_btn = tk.Button(popup, text="Choose Color", command=choose_color)
+    color_btn.pack(pady=5)
+
+    def save_session():
+        title = title_entry.get()
+        notes = notes_entry.get("1.0", "end-1c")
+        color = color_var.get()
+
+        if not title:
+            return 
+        if day not in planner_data:
+            planner_data[day] = {}
+        planner_data[day][time_label] = {
+            "title": title, 
+            "notes": notes, 
+            "color": color
+        }
+            
+        cell_label.config(text=title, bg=color or "white", wraplength=80)
+        save_planner_data()
+        popup.destroy()
+
+    tk.Button(popup, text="Save", command=save_session).pack(pady=5)
+
+def setup_study_planner(study_planner_tab):
+    global planner_data
+    planner_data = load_planner_data()
+
+    planner_control_frame = ttk.Frame(study_planner_tab)
+    planner_control_frame.pack(pady=10)
+
+    ttk.Label(planner_control_frame, text="Start Hour:").pack(side="left", padx=5)
+    planner_start_var = ttk.Combobox(planner_control_frame, values=list(range(0, 24)), width=5)
+    planner_start_var.set("8")
+    planner_start_var.pack(side="left")
+
+    ttk.Label(planner_control_frame, text="End Hour:").pack(side="left", padx=5)
+    planner_end_var = ttk.Combobox(planner_control_frame, values=list(range(1, 25)), width=5)
+    planner_end_var.set("20")
+    planner_end_var.pack(side="left")
+
+    canvas_frame = ttk.Frame(study_planner_tab)
+    canvas_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+    planner_canvas = tk.Canvas(canvas_frame)
+    scrollbar = tk.Scrollbar(canvas_frame, orient="vertical", command=planner_canvas.yview)
+    planner_canvas.configure(yscrollcommand=scrollbar.set)
+
+    scrollbar.pack(side="right", fill="y")
+    planner_canvas.pack(side="left", fill="both", expand=True)
+
+    planner_grid_frame = ttk.Frame(planner_canvas)
+    planner_canvas.create_window((0, 0), window=planner_grid_frame, anchor="nw")
+
+    def on_frame_configure(event):
+        planner_canvas.configure(scrollregion=planner_canvas.bbox("all"))
+
+    planner_grid_frame.bind("<Configure>", on_frame_configure)
+
+    def generate_time_slots(start_hour, end_hour):
+        slots = []
+        for hour in range(start_hour, end_hour):
+            period = "AM" if hour < 12 else "PM"
+            display_hour = hour % 12 or 12
+            slots.append(f"{display_hour}:00 {period}")
+        return slots
+    
+    def update_planner_grid():
+        for widget in planner_grid_frame.winfo_children():
+            widget.destroy()
+
+        try:
+            start = int(planner_start_var.get())
+            end = int(planner_end_var.get())
+            if start >= end:
+                raise ValueError
+        except:
+            return
+        
+        time_slots = generate_time_slots(start, end)
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+      
+        tk.Label(planner_grid_frame, text="Time", width=12, relief="ridge").grid(row=0, column=0, sticky="nsew")
+        for col, day in enumerate(days, start=1):
+            tk.Label(planner_grid_frame, text=day, width=14, relief="ridge").grid(row=0, column=col, sticky="nsew")
+
+
+        for row, time_label in enumerate(time_slots, start=1):
+            tk.Label(planner_grid_frame, text=time_label, width=12, relief="ridge").grid(row=row, column=0, sticky="nsew")
+
+            for col, day in enumerate(days, start=1):
+                cell = tk.Label(planner_grid_frame, text="", bg="white", relief="ridge", width=15, borderwidth=1, height=2)
+                cell.grid(row=row, column=col, sticky="nsew")
+
+                
+                session = planner_data.get(day, {}).get(time_label)
+                if session:
+                    cell.config(text=session.get("title", ""), bg=session.get("color", "white"), wraplength=80)
+
+                cell.bind("<Button-1>", lambda e, d=day, t=time_label, c=cell: add_session(d, t, c))
+
+    ttk.Button(planner_control_frame, text="Update Grid", command=update_planner_grid).pack(side="left", padx=10)
+    update_planner_grid()
+
 
 def open_study_tools():
     study_winow = tk.Toplevel()
@@ -994,12 +1182,15 @@ def open_study_tools():
     flashcard_tab = ttk.Frame(tab_control)
     pomodoro_tab = ttk.Frame(tab_control)
     project_tracker_tab = ttk.Frame(tab_control)
+    study_planner_tab = ttk.Frame(tab_control)
 
     tab_control.add(flashcard_tab, text="Flashcards")
     tab_control.add(pomodoro_tab, text="Pomodoro Timer")
     tab_control.add(project_tracker_tab, text="Project Tracker")
+    tab_control.add(study_planner_tab, text="Planner")
     tab_control.pack(expand=1, fill="both")
 
     setup_flashcards(flashcard_tab)
     setup_pomodoro(pomodoro_tab)
     setup_project_tracker(project_tracker_tab)
+    setup_study_planner(study_planner_tab)

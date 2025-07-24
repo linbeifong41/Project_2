@@ -86,7 +86,7 @@ refresh_btn.pack(pady=5)
 
 
 def _on_mousewheel(event):
-    canvas.yview_scroll(-1 * int((event.delta / 120)), "units")
+    canvas.yview_scroll(-1*int((event.delta/120)), "units")
 
 canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
