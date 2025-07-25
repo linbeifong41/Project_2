@@ -50,7 +50,7 @@ The to-do list supports adding tasks with categories, due dates, marking complet
 Project Structure
 bash
 
-MindGarden/
+MindGarden/\
 │\
 ├── main.py # Main application launcher with mood logging and navigation\
 ├── journal.py # Journal entry windows, saving, and tag management\
@@ -59,4 +59,4 @@ MindGarden/
 ├── todo_list.py # To-Do list UI, task management with JSON storage\
 ├── mood_log.txt # Mood logs saved here (auto-created)\
 ├── todo.txt # To-Do tasks saved here (auto-created)\
-└── journal_<date>.txt # Daily journal files, one per date\
+└── journal_<date>.txt # Daily journal files, one per date
