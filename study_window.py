@@ -1048,24 +1048,29 @@ def load_planner_data():
 
 def add_session(day, time_label, cell_label):
     popup = tk.Toplevel()
-    popup.title("Add Session")
+    popup.title(f"{day}, {time_label}")
+
+    existing = planner_data.get(day, {}).get(time_label, {})
 
     tk.Label(popup, text=f"{day}, {time_label}", font=("Arial", 12, "bold")).pack(pady=5)
 
     tk.Label(popup, text="Title:").pack()
-    title_entry = tk.Entry(popup, width=30) 
+    title_entry = tk.Entry(popup, width=30)
     title_entry.pack(pady=2)
+    title_entry.insert(0, existing.get("title", ""))
 
     tk.Label(popup, text="Notes:").pack()
     notes_entry = tk.Text(popup, height=4, width=30)
     notes_entry.pack(pady=2)
+    notes_entry.insert("1.0", existing.get("notes", ""))
 
-    color_var = tk.StringVar()
+    color_var = tk.StringVar(value=existing.get("color", ""))
+
     def choose_color():
         color = colorchooser.askcolor(title="Pick Color")[1]
         if color:
             color_var.set(color)
-    
+
     color_btn = tk.Button(popup, text="Choose Color", command=choose_color)
     color_btn.pack(pady=5)
 
@@ -1075,20 +1080,39 @@ def add_session(day, time_label, cell_label):
         color = color_var.get()
 
         if not title:
-            return 
+            return
         if day not in planner_data:
             planner_data[day] = {}
+
         planner_data[day][time_label] = {
-            "title": title, 
-            "notes": notes, 
+            "title": title,
+            "notes": notes,
             "color": color
         }
-            
+
         cell_label.config(text=title, bg=color or "white", wraplength=80)
         save_planner_data()
         popup.destroy()
 
-    tk.Button(popup, text="Save", command=save_session).pack(pady=5)
+    def delete_session():
+        if day in planner_data and time_label in planner_data[day]:
+            del planner_data[day][time_label]
+            if not planner_data[day]:
+                del planner_data[day]
+            cell_label.config(text="", bg="white")
+            save_planner_data()
+        popup.destroy()
+
+    btn_frame = tk.Frame(popup)
+    btn_frame.pack(pady=5)
+
+    tk.Button(btn_frame, text="Save", command=save_session).pack(side="left", padx=5)
+
+    if existing:
+        tk.Button(btn_frame, text="Delete", command=delete_session).pack(side="left", padx=5)
+
+    tk.Button(btn_frame, text="Cancel", command=popup.destroy).pack(side="left", padx=5)
+
 
 def setup_study_planner(study_planner_tab):
     global planner_data

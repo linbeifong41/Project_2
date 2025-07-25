@@ -51,12 +51,12 @@ Project Structure
 bash
 
 MindGarden/
-│
-├── main.py # Main application launcher with mood logging and navigation
-├── journal.py # Journal entry windows, saving, and tag management
-├── calendar_window.py # Calendar GUI, reminders management linked with journal
-├── notepad.py # Simple text editor with file operations
-├── todo_list.py # To-Do list UI, task management with JSON storage
-├── mood_log.txt # Mood logs saved here (auto-created)
-├── todo.txt # To-Do tasks saved here (auto-created)
-└── journal_<date>.txt # Daily journal files, one per date
+│\
+├── main.py # Main application launcher with mood logging and navigation\
+├── journal.py # Journal entry windows, saving, and tag management\
+├── calendar_window.py # Calendar GUI, reminders management linked with journal\
+├── notepad.py # Simple text editor with file operations\
+├── todo_list.py # To-Do list UI, task management with JSON storage\
+├── mood_log.txt # Mood logs saved here (auto-created)\
+├── todo.txt # To-Do tasks saved here (auto-created)\
+└── journal_<date>.txt # Daily journal files, one per date\
