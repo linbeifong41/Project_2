@@ -265,7 +265,7 @@ def todo_list():
             check = tk.Checkbutton(top_row, variable=var, command=toggle_done)
             check.pack(side="left")
 
-            display_text = task["text"]
+            display_text = task["task"]
             if "due" in task and task["due"]:
                 display_text += f" -Due: {task['due']}"
 
@@ -320,7 +320,7 @@ def todo_list():
                 popup.geometry("300x250")
                 popup.configure(bg="#FAFAD2")
 
-                new_text_var = tk.StringVar(value=current["text"])
+                new_text_var = tk.StringVar(value=current["task"])
                 new_date_var = tk.StringVar(value=current.get("due", "").split()[0] if "due" in current else "")
                 new_time_var = tk.StringVar(value=current.get("due", "").split()[1] if "due" in current and " " in current["due"] else "")
                 new_cat_var = tk.StringVar(value=current.get("category", "General"))
