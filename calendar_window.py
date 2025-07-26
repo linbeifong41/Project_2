@@ -67,9 +67,9 @@ def open_calendar_screen():
 
         tk.Label(top, text="Importance:").pack(pady=5)
         importance_level = tk.StringVar(value="medium")
-        tk.Radiobutton(top, text="High 🔴", variable=importance_level, value="high").pack()
-        tk.Radiobutton(top, text="Medium 🟡", variable=importance_level, value="medium").pack()
-        tk.Radiobutton(top, text="Low 🟢", variable=importance_level, value="low").pack()
+        tk.Radiobutton(top, text="High", variable=importance_level, value="high").pack()
+        tk.Radiobutton(top, text="Medium", variable=importance_level, value="medium").pack()
+        tk.Radiobutton(top, text="Low", variable=importance_level, value="low").pack()
 
 
         def save():
@@ -149,9 +149,9 @@ def open_calendar_screen():
 
                 importance_level = tk.StringVar(value=reminders[selected_date][i].get("importance", "medium"))
                 tk.Label(edit_top, text="Edit Importance:").pack(pady=5)
-                tk.Radiobutton(edit_top, text="High 🔴", variable=importance_level, value="high").pack()
-                tk.Radiobutton(edit_top, text="Medium 🟡", variable=importance_level, value="medium").pack()
-                tk.Radiobutton(edit_top, text="Low 🟢", variable=importance_level, value="low").pack()
+                tk.Radiobutton(edit_top, text="High", variable=importance_level, value="high").pack()
+                tk.Radiobutton(edit_top, text="Medium", variable=importance_level, value="medium").pack()
+                tk.Radiobutton(edit_top, text="Low", variable=importance_level, value="low").pack()
 
                 def save_edit():
                     reminders[selected_date][i]['description'] = entry.get()
@@ -230,10 +230,3 @@ def open_calendar_screen():
     tk.Button(cal_window, text="Add Reminder", command=add_reminder).pack(pady=5)
     tk.Button(cal_window, text="View Reminders", command=view_reminders).pack(pady=5)
     tk.Button(cal_window, text="View All Reminders", command=view_all_reminders).pack(pady=5)
-
-
-
-    tk.Label(cal_window, text="🟢 = Today 🔵 = Reminder", font=("Arial", 10), bg="#F0FFF0").pack(pady=5)
-
-    
-

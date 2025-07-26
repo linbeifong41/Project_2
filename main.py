@@ -92,4 +92,3 @@ canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
 
 root.mainloop()
-

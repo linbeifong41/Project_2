@@ -3,6 +3,8 @@ from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
 from tkcalendar import DateEntry
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 import tkinter.colorchooser as colorchooser
 import tkinter.simpledialog as simpledialog
 import csv
@@ -1033,6 +1035,95 @@ def setup_project_tracker(frame):
 
     refresh_projects()
 
+class Tooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+
+        widget.bind("<Enter>", self.show_tooltip)
+        widget.bind("<Leave>", self.hide_tooltip)
+
+    def show_tooltip(self, event=None):
+        if self.tooltip or not self.text.strip():
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 20
+        y += self.widget.winfo_rooty() + 20
+
+        self.tooltip = tk.Toplevel(self.widget)
+        self.tooltip.wm_overrideredirect(True)
+        self.tooltip.geometry(f"+{x}+{y}")
+        label = tk.Label(
+            self.tooltip,
+            text=self.text,
+            background="lightyellow",
+            relief="solid",
+            borderwidth=1,
+            font=("Arial", 10),
+            wraplength=200,
+            justify="left"
+        )
+        label.pack()
+
+    def hide_tooltip(self, event=None):
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None 
+
+def export_to_pdf():
+    global planner_data
+    planner_data = load_planner_data()
+
+    if not planner_data:
+        messagebox.showinfo("Export", "No sessions to export.")
+        return
+    
+    file_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
+    if not file_path:
+        return
+
+    c = canvas.Canvas(file_path, pagesize=letter)
+    width, height = letter
+    x, y = 50, height - 50
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(x, y, "Study Planner Export")
+    y -= 30
+
+    for day in planner_data:
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, y, day)
+        y -= 20
+
+        for time in sorted(planner_data[day]):
+            session = planner_data[day][time]
+            title = session.get("title", "")
+            notes = session.get("notes", "")
+            text = f"{time} - {title}"
+            c.setFont("Helvetica", 11)
+            c.drawString(x + 20, y, text)
+            y -= 15
+
+            if notes:
+                c.setFont("Helvetica-Oblique", 10)
+                wrapped = wrap_text(notes, 80)
+                for line in wrapped:
+                    c.drawString(x + 40, y, line)
+                    y -= 13
+
+            y -= 5
+
+            if y < 50:
+                c.showPage()
+                y = height - 50
+
+    c.save()
+
+def wrap_text(text, width):
+    import textwrap
+    return textwrap.wrap(text, width)  
+
 PLANNER_DATA_FILE = "study_planner_data.json"
 planner_data = {}
 
@@ -1091,6 +1182,7 @@ def add_session(day, time_label, cell_label):
         }
 
         cell_label.config(text=title, bg=color or "white", wraplength=80)
+        Tooltip(cell_label, notes)
         save_planner_data()
         popup.destroy()
 
@@ -1189,11 +1281,15 @@ def setup_study_planner(study_planner_tab):
                 session = planner_data.get(day, {}).get(time_label)
                 if session:
                     cell.config(text=session.get("title", ""), bg=session.get("color", "white"), wraplength=80)
+                    Tooltip(cell, session.get("notes", ""))
 
                 cell.bind("<Button-1>", lambda e, d=day, t=time_label, c=cell: add_session(d, t, c))
 
     ttk.Button(planner_control_frame, text="Update Grid", command=update_planner_grid).pack(side="left", padx=10)
     update_planner_grid()
+    export_btn = tk.Button(planner_control_frame,  text="Export to PDF", command=export_to_pdf)
+    export_btn.pack(pady=5)
+
 
 
 def open_study_tools():

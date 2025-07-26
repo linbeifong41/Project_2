@@ -439,7 +439,3 @@ def notepad():
     root.config(menu=menu_bar)
 
     root.mainloop()
-
-
-
- 
