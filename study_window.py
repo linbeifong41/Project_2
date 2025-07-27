@@ -1157,6 +1157,30 @@ def add_session(day, time_label, cell_label):
 
     color_var = tk.StringVar(value=existing.get("color", ""))
 
+    tk.Label(popup, text="Recurrence:").pack()
+    recurrence_var = tk.StringVar(value=existing.get("recurrence", "None"))
+    recurrence_menu = ttk.Combobox(popup, textvariable=recurrence_var, values=["None", "Daily", "Weekly", "Custom"])
+    recurrence_menu.pack(pady=2)
+
+    custom_days_frame = tk.Frame(popup)
+    custom_days = {}
+    for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
+        var = tk.BooleanVar(value=d in existing.get("custom_days", []))
+        chk = tk.Checkbutton(custom_days_frame, text=d, variable=var)
+        chk.pack(side="left")
+        custom_days[d] = var
+    custom_days_frame.pack(pady=2)
+
+    def update_custom_visibility(*args):
+        if recurrence_var.get() == "Custom":
+            custom_days_frame.pack(pady=2)
+        else:
+            custom_days_frame.pack_forget()
+
+    recurrence_var.trace_add("write", update_custom_visibility)
+    update_custom_visibility()
+
+
     def choose_color():
         color = colorchooser.askcolor(title="Pick Color")[1]
         if color:
@@ -1178,7 +1202,9 @@ def add_session(day, time_label, cell_label):
         planner_data[day][time_label] = {
             "title": title,
             "notes": notes,
-            "color": color
+            "color": color or "white",
+            "recurrence": recurrence_var.get(),
+            "custom_days": [d for d, v in custom_days.items() if v.get()]
         }
 
         cell_label.config(text=title, bg=color or "white", wraplength=80)
@@ -1205,10 +1231,45 @@ def add_session(day, time_label, cell_label):
 
     tk.Button(btn_frame, text="Cancel", command=popup.destroy).pack(side="left", padx=5)
 
+def generate_recurring_sessions(today):
+    weekday = today.strftime("%a")
+
+    for day in list(planner_data):
+        for time in list(planner_data[day]):
+            if planner_data[day][time].get("generated"):
+                del planner_data[day][time]
+        if not planner_data[day]:
+            del planner_data[day]
+
+
+    for day in list(planner_data):
+        for time, session in list(planner_data[day].items()):
+            recurrence = session.get("recurrence", "None")
+            custom_days = session.get("custom_days", [])
+
+            should_generate = (
+                recurrence == "Daily"
+                or (recurrence == "Weekly" and day == weekday)
+                or (recurrence == "Custom" and weekday in custom_days)
+            )
+
+            if should_generate:
+                if weekday not in planner_data:
+                    planner_data[weekday] = {}
+
+                if time not in planner_data[weekday]:
+                    new_session = session.copy()
+                    new_session["generated"] = True
+                    new_session["color"] = new_session.get("color", "white")
+                    planner_data[weekday][time] = new_session
+
 
 def setup_study_planner(study_planner_tab):
     global planner_data
     planner_data = load_planner_data()
+    today = datetime.datetime.today()
+    generate_recurring_sessions(today)
+    save_planner_data()
 
     planner_control_frame = ttk.Frame(study_planner_tab)
     planner_control_frame.pack(pady=10)
@@ -1280,7 +1341,7 @@ def setup_study_planner(study_planner_tab):
                 
                 session = planner_data.get(day, {}).get(time_label)
                 if session:
-                    cell.config(text=session.get("title", ""), bg=session.get("color", "white"), wraplength=80)
+                    cell.config(text=session.get("title", ""), bg=session.get("color") or "white", wraplength=80)
                     Tooltip(cell, session.get("notes", ""))
 
                 cell.bind("<Button-1>", lambda e, d=day, t=time_label, c=cell: add_session(d, t, c))
@@ -1289,6 +1350,15 @@ def setup_study_planner(study_planner_tab):
     update_planner_grid()
     export_btn = tk.Button(planner_control_frame,  text="Export to PDF", command=export_to_pdf)
     export_btn.pack(pady=5)
+
+    def handle_manual_recurring():
+        today = datetime.datetime.today()
+        generate_recurring_sessions(today)
+        save_planner_data()
+        update_planner_grid()
+
+    ttk.Button(planner_control_frame, text="Generate Recurring Now", command=handle_manual_recurring).pack(side="left", padx=10)
+
 
 
 
