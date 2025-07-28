@@ -1127,6 +1127,18 @@ def wrap_text(text, width):
 PLANNER_DATA_FILE = "study_planner_data.json"
 planner_data = {}
 
+TEMPLATE_FILE = "session_templates.json"
+
+def load_templates():
+    if os.path.exists(TEMPLATE_FILE):
+        with open(TEMPLATE_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_templates(templates):
+    with open(TEMPLATE_FILE, "w") as f:
+        json.dump(templates, f, indent=2)
+
 def save_planner_data():
     with open(PLANNER_DATA_FILE, "w") as f:
         json.dump(planner_data, f, indent=2)
@@ -1182,7 +1194,7 @@ def add_session(day, time_label, cell_label):
 
 
     def choose_color():
-        color = colorchooser.askcolor(title="Pick Color")[1]
+        color = colorchooser.askcolor(title="Pick Color", parent=popup)[1]
         if color:
             color_var.set(color)
 
@@ -1218,8 +1230,13 @@ def add_session(day, time_label, cell_label):
             if not planner_data[day]:
                 del planner_data[day]
             cell_label.config(text="", bg="white")
+        
+
+            cell_label.unbind("<Enter>")
+            cell_label.unbind("<Leave>")
+        
             save_planner_data()
-        popup.destroy()
+            popup.destroy()
 
     btn_frame = tk.Frame(popup)
     btn_frame.pack(pady=5)
@@ -1231,38 +1248,60 @@ def add_session(day, time_label, cell_label):
 
     tk.Button(btn_frame, text="Cancel", command=popup.destroy).pack(side="left", padx=5)
 
+    def save_as_template():
+        title = title_entry.get().strip()
+        if not title:
+            messagebox.showwarning("Missing Title", "Please enter a title before saving as a template.")
+            return
+
+        template = {
+            "title": title,
+            "notes": notes_entry.get("1.0", "end-1c"),
+            "color": color_var.get() or "white"
+        }
+        templates = load_templates()
+        templates.append(template)
+        save_templates(templates)
+        messagebox.showinfo("Template Saved", "Session saved as template.") 
+
 def generate_recurring_sessions(today):
     weekday = today.strftime("%a")
 
     for day in list(planner_data):
-        for time in list(planner_data[day]):
-            if planner_data[day][time].get("generated"):
-                del planner_data[day][time]
+        planner_data[day] = {
+            time: sess for time, sess in planner_data[day].items()
+            if not sess.get("generated")
+        }
         if not planner_data[day]:
             del planner_data[day]
 
+    base_data = load_planner_data()
 
-    for day in list(planner_data):
-        for time, session in list(planner_data[day].items()):
+    for day, sessions in base_data.items():
+        for time, session in sessions.items():
+            if session.get("generated"):
+                continue  
+
             recurrence = session.get("recurrence", "None")
             custom_days = session.get("custom_days", [])
-
+          
             should_generate = (
-                recurrence == "Daily"
-                or (recurrence == "Weekly" and day == weekday)
-                or (recurrence == "Custom" and weekday in custom_days)
+            recurrence == "Daily" or
+            (recurrence == "Weekly" and day == weekday) or
+            (recurrence == "Custom" and weekday in custom_days)
             )
 
-            if should_generate:
-                if weekday not in planner_data:
-                    planner_data[weekday] = {}
+            if not should_generate:
+                continue
+        
+            if weekday not in planner_data:
+                planner_data[weekday] = {}
 
-                if time not in planner_data[weekday]:
-                    new_session = session.copy()
-                    new_session["generated"] = True
-                    new_session["color"] = new_session.get("color", "white")
-                    planner_data[weekday][time] = new_session
-
+            if time not in planner_data[weekday]:
+                generated = session.copy()
+                generated["generated"] = True
+                generated["color"] = session.get("color", "white")
+                planner_data[weekday][time] = generated
 
 def setup_study_planner(study_planner_tab):
     global planner_data
@@ -1345,6 +1384,17 @@ def setup_study_planner(study_planner_tab):
                     Tooltip(cell, session.get("notes", ""))
 
                 cell.bind("<Button-1>", lambda e, d=day, t=time_label, c=cell: add_session(d, t, c))
+                
+    template_var = tk.StringVar()
+    template_dropdown = ttk.Combobox(planner_control_frame, textvariable=template_var, width=25, state="readonly")
+
+    def update_template_dropdown():
+        templates = load_templates()
+        template_dropdown["values"] = [t["title"] for t in templates]
+
+    update_template_dropdown()
+    template_dropdown.pack(side="left", padx=5)
+
 
     ttk.Button(planner_control_frame, text="Update Grid", command=update_planner_grid).pack(side="left", padx=10)
     update_planner_grid()
@@ -1358,8 +1408,6 @@ def setup_study_planner(study_planner_tab):
         update_planner_grid()
 
     ttk.Button(planner_control_frame, text="Generate Recurring Now", command=handle_manual_recurring).pack(side="left", padx=10)
-
-
 
 
 def open_study_tools():
