@@ -1201,6 +1201,34 @@ def add_session(day, time_label, cell_label):
     color_btn = tk.Button(popup, text="Choose Color", command=choose_color)
     color_btn.pack(pady=5)
 
+    tk.Label(popup, text="Apply Template:").pack()
+    template_var = tk.StringVar()
+    template_dropdown = ttk.Combobox(popup, textvariable=template_var, state="readonly", width=30)
+    template_dropdown.pack(pady=2)
+
+    def update_template_dropdown():
+        templates = load_templates()
+        template_dropdown["values"] = [t["title"] for t in templates]
+
+    update_template_dropdown()
+
+    def apply_template():
+        selected = template_var.get()
+        if not selected:
+            return
+        templates = load_templates()
+        for tmpl in templates:
+            if tmpl["title"] == selected:
+                title_entry.delete(0, tk.END)
+                title_entry.insert(0, tmpl["title"])
+                notes_entry.delete("1.0", tk.END)
+                notes_entry.insert("1.0", tmpl["notes"])
+                color_var.set(tmpl["color"])
+                break
+
+    ttk.Button(popup, text="Apply", command=apply_template).pack(pady=2)
+
+
     def save_session():
         title = title_entry.get()
         notes = notes_entry.get("1.0", "end-1c")
@@ -1288,7 +1316,7 @@ def generate_recurring_sessions(today):
           
             should_generate = (
             recurrence == "Daily" or
-            (recurrence == "Weekly" and day == weekday) or
+            (recurrence == "Weekly" and weekday == day) or
             (recurrence == "Custom" and weekday in custom_days)
             )
 
@@ -1389,16 +1417,6 @@ def setup_study_planner(study_planner_tab):
 
                 cell.bind("<Button-1>", lambda e, d=day, t=time_label, c=cell: add_session(d, t, c))
                 
-    template_var = tk.StringVar()
-    template_dropdown = ttk.Combobox(planner_control_frame, textvariable=template_var, width=25, state="readonly")
-
-    def update_template_dropdown():
-        templates = load_templates()
-        template_dropdown["values"] = [t["title"] for t in templates]
-
-    update_template_dropdown()
-    template_dropdown.pack(side="left", padx=5)
-
     ttk.Button(planner_control_frame, text="Update Grid", command=update_planner_grid).pack(side="left", padx=10)
     update_planner_grid()
     export_btn = tk.Button(planner_control_frame,  text="Export to PDF", command=export_to_pdf)
@@ -1411,41 +1429,6 @@ def setup_study_planner(study_planner_tab):
         update_planner_grid()
 
     ttk.Button(planner_control_frame, text="Generate Recurring Now", command=handle_manual_recurring).pack(side="left", padx=10)
-
-
-    def use_selected_template():
-        selected = template_var.get()
-        if not selected:
-            return
-        templates = load_templates()
-        for tmpl in templates:
-            if tmpl["title"] == selected:
-                planner_canvas.bind("<Button-1>", lambda e, tmpl=tmpl: insert_template(e, tmpl))
-                messagebox.showinfo("Insert Mode", "Click a cell to insert the template.")
-                break
-
-    def insert_template(event, tmpl):
-        x, y = event.x, event.y
-        widget = event.widget.winfo_containing(event.x_root, event.y_root)
-        if isinstance(widget, tk.Label) and widget != planner_canvas:
-            for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
-                for time in generate_time_slots(int(planner_start_var.get()), int(planner_end_var.get())):
-                    session = planner_data.get(day, {}).get(time)
-                    if session and widget.cget("text") == session.get("title"):
-                        planner_data[day][time] = {
-                            "title": tmpl["title"],
-                            "notes": tmpl["notes"],
-                            "color": tmpl["color"],
-                            "recurrence": "None",
-                            "custom_days": []
-                        }
-                        widget.config(text=tmpl["title"], bg=tmpl["color"], wraplength=80)
-                        Tooltip(widget, tmpl["notes"])
-                        save_planner_data()
-                        update_planner_grid()
-                        planner_canvas.unbind("<Button-1>")
-                        return
-    ttk.Button(planner_control_frame, text="Use Template", command=use_selected_template).pack(side="left", padx=5)
 
 
 def open_study_tools():
