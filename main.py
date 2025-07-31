@@ -6,6 +6,7 @@ from calendar_window import open_calendar_screen
 from notepad import notepad
 from Todo_List import todo_list
 from study_window import open_study_tools
+from habit_tracker import open_habit_tracker
 
 
 def log_mood(level):
@@ -65,6 +66,9 @@ todo_list_btn.pack(pady=10)
 
 study_window_btn = tk.Button(content, text="Open Study Window", command=open_study_tools, font=("Arial", 10))
 study_window_btn.pack(pady=10)
+
+habit_tracker_button = tk.Button(content, text="Open Habit tracker", command=open_habit_tracker, font=("Arial", 10))
+habit_tracker_button.pack(pady=10)
 
 mood_log_box = scrolledtext.ScrolledText(content, width=40, height=10, font=("Arial",12))
 mood_log_box.pack(pady=10)
