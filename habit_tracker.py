@@ -18,6 +18,14 @@ def save_log(entry):
     with open(LOG_FILE, "w") as f:
         json.dump(logs, f, indent=4)
 
+def get_today_logs():
+    today = datetime.now().date()
+    logs = load_logs()
+    return [
+        log for log in logs
+        if datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date() == today
+    ]
+
 def open_habit_tracker():
     window = tk.Toplevel()
     window.title("Tech Habit Tracker")
@@ -40,12 +48,46 @@ def open_habit_tracker():
     button_frame = tk.Frame(window)
     button_frame.pack(pady=10)
 
+    stats_frame = tk.LabelFrame(window, text="Today's Summary", padx=10, pady=5)
+    stats_frame.pack(fill="x", padx=10, pady=(5, 10))
+
+    total_label = tk.Label(stats_frame, text="Total: 0")
+    total_label.pack(anchor="w")
+
+    intentional_label = tk.Label(stats_frame, text="Intentional: 0")
+    intentional_label.pack(anchor="w")
+
+    unintentional_label = tk.Label(stats_frame, text="Unintentional: 0")
+    unintentional_label.pack(anchor="w")
+
+    percent_label = tk.Label(stats_frame, text="Mindful Usage: 0%")
+    percent_label.pack(anchor="w")
+
     def refresh_logs():
         log_listbox.delete(0, tk.END)
         logs = load_logs()
         for log in reversed(logs):
             label = f"[{log['timestamp']}] {'✓' if log['intentional'] == 'Yes' else '✗'} - {log['usage']}"
             log_listbox.insert(tk.END, label)
+
+        today_logs = get_today_logs()
+        total = len(today_logs)
+        intentional = sum(1 for log in today_logs if log["intentional"] == "Yes")
+        unintentional = total - intentional
+        percent = (intentional / total * 100) if total else 0
+
+        total_label.config(text=f"Total: {total}")
+        intentional_label.config(text=f"Intentional: {intentional}")
+        unintentional_label.config(text=f"Unintentional: {unintentional}")
+        percent_label.config(text=f"Mindful Usage: {percent:.0f}%")
+
+        if percent >= 80:
+            percent_label.config(fg="green")
+        elif percent >= 50:
+            percent_label.config(fg="orange")
+        else:
+            percent_label.config(fg="red")
+            
 
     def submit_log():
         text = usage_entry.get().strip()
