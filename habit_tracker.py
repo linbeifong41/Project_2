@@ -26,6 +26,27 @@ def get_today_logs():
         if datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date() == today
     ]
 
+def get_clean_streak():
+    logs = load_logs()
+
+ 
+    daily_logs = {}
+    for log in logs:
+        date_str = log["timestamp"].split()[0]
+        daily_logs.setdefault(date_str, []).append(log)
+
+
+    sorted_dates = sorted(daily_logs.keys(), reverse=True)
+
+    streak = 0
+    for date_str in sorted_dates:
+        day_logs = daily_logs[date_str]
+        if any(log["intentional"] == "No" for log in day_logs):
+            break  
+        streak += 1
+
+    return streak
+
 def open_habit_tracker():
     window = tk.Toplevel()
     window.title("Tech Habit Tracker")
@@ -62,6 +83,8 @@ def open_habit_tracker():
 
     percent_label = tk.Label(stats_frame, text="Mindful Usage: 0%")
     percent_label.pack(anchor="w")
+    streak_label = tk.Label(stats_frame, text="Clean Streak: 0 days") 
+    streak_label.pack(anchor="w", pady=1)
 
     def refresh_logs():
         log_listbox.delete(0, tk.END)
@@ -87,6 +110,9 @@ def open_habit_tracker():
             percent_label.config(fg="orange")
         else:
             percent_label.config(fg="red")
+
+        streak = get_clean_streak() 
+        streak_label.config(text=f"Clean Streak: {streak} day{'s' if streak != 1 else ''} ")
             
 
     def submit_log():
