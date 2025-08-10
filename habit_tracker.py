@@ -50,13 +50,18 @@ def get_clean_streak():
 def open_habit_tracker():
     window = tk.Toplevel()
     window.title("Tech Habit Tracker")
-    window.geometry("550x600")
+    window.geometry("650x700")
 
     selected_index = [None]  
 
+   
     tk.Label(window, text="Tech Usage Entry:").pack(pady=(10, 0))
     usage_entry = tk.Entry(window, width=50)
     usage_entry.pack(pady=5)
+
+    tk.Label(window, text="Notes / Journal:").pack()
+    notes_text = tk.Text(window, width=50, height=4)
+    notes_text.pack(pady=5)
 
     tk.Label(window, text="Was it intentional?").pack()
     intentional_var = tk.StringVar(value="Yes")
@@ -69,26 +74,64 @@ def open_habit_tracker():
     button_frame = tk.Frame(window)
     button_frame.pack(pady=10)
 
+
     stats_frame = tk.LabelFrame(window, text="Today's Summary", padx=10, pady=5)
     stats_frame.pack(fill="x", padx=10, pady=(5, 10))
 
     total_label = tk.Label(stats_frame, text="Total: 0")
     total_label.pack(anchor="w")
-
     intentional_label = tk.Label(stats_frame, text="Intentional: 0")
     intentional_label.pack(anchor="w")
-
     unintentional_label = tk.Label(stats_frame, text="Unintentional: 0")
     unintentional_label.pack(anchor="w")
-
     percent_label = tk.Label(stats_frame, text="Mindful Usage: 0%")
     percent_label.pack(anchor="w")
-    streak_label = tk.Label(stats_frame, text="Clean Streak: 0 days") 
+    streak_label = tk.Label(stats_frame, text="Clean Streak: 0 days")
     streak_label.pack(anchor="w", pady=1)
+
+    filter_frame = tk.LabelFrame(window, text="Search & Filter")
+    filter_frame.pack(fill="x", padx=10, pady=(0, 5))
+
+    tk.Label(filter_frame, text="Keyword:").grid(row=0, column=0, padx=5, pady=2)
+    keyword_var = tk.StringVar()
+    keyword_entry = tk.Entry(filter_frame, textvariable=keyword_var, width=15)
+    keyword_entry.grid(row=0, column=1, padx=5, pady=2)
+
+    tk.Label(filter_frame, text="Intention:").grid(row=0, column=2, padx=5, pady=2)
+    intention_filter_var = tk.StringVar(value="All")
+    intention_dropdown = ttk.Combobox(filter_frame, textvariable=intention_filter_var, values=["All", "Yes", "No"], width=8, state="readonly")
+    intention_dropdown.grid(row=0, column=3, padx=5, pady=2)
+
+    tk.Label(filter_frame, text="Date (YYYY-MM-DD):").grid(row=0, column=4, padx=5, pady=2)
+    date_var = tk.StringVar()
+    date_entry = tk.Entry(filter_frame, textvariable=date_var, width=12)
+    date_entry.grid(row=0, column=5, padx=5, pady=2)
+
+    def apply_filters(logs):
+        keyword = keyword_var.get().strip().lower()
+        intention_filter = intention_filter_var.get()
+        date_filter = date_var.get().strip()
+
+        filtered = []
+        for log in logs:
+            if keyword and (keyword not in log["usage"].lower() and keyword not in log.get("notes", "").lower()):
+                continue
+            if intention_filter != "All" and log["intentional"] != intention_filter:
+                continue
+            if date_filter:
+                try:
+                    if not log["timestamp"].startswith(date_filter):
+                        continue
+                except:
+                    continue
+            filtered.append(log)
+        return filtered
 
     def refresh_logs():
         log_listbox.delete(0, tk.END)
         logs = load_logs()
+        logs = apply_filters(logs)  
+
         for log in reversed(logs):
             label = f"[{log['timestamp']}] {'✓' if log['intentional'] == 'Yes' else '✗'} - {log['usage']}"
             log_listbox.insert(tk.END, label)
@@ -111,27 +154,26 @@ def open_habit_tracker():
         else:
             percent_label.config(fg="red")
 
-        streak = get_clean_streak() 
-        streak_label.config(text=f"Clean Streak: {streak} day{'s' if streak != 1 else ''} ")
-            
+        streak = get_clean_streak()
+        streak_label.config(text=f"Clean Streak: {streak} day{'s' if streak != 1 else ''}")
 
     def submit_log():
         text = usage_entry.get().strip()
+        notes = notes_text.get("1.0", tk.END).strip()
         if not text:
             messagebox.showwarning("Missing", "Please enter what you did.", parent=window)
             return
 
         entry = {
             "usage": text,
+            "notes": notes,
             "intentional": intentional_var.get(),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        logs = load_logs()
-        logs.append(entry)
-        with open(LOG_FILE, "w") as f:
-            json.dump(logs, f, indent=4)
+        save_log(entry)
         usage_entry.delete(0, tk.END)
+        notes_text.delete("1.0", tk.END)
         refresh_logs()
         messagebox.showinfo("Saved", "Your tech habit was logged.", parent=window)
 
@@ -139,13 +181,14 @@ def open_habit_tracker():
         index = log_listbox.curselection()
         if not index:
             return
-        actual_index = len(load_logs()) - 1 - index[0]
+        actual_index = len(apply_filters(load_logs())) - 1 - index[0]
         logs = load_logs()
         if messagebox.askyesno("Delete", "Are you sure you want to delete this log?", parent=window):
             logs.pop(actual_index)
             with open(LOG_FILE, "w") as f:
                 json.dump(logs, f, indent=4)
             usage_entry.delete(0, tk.END)
+            notes_text.delete("1.0", tk.END)
             selected_index[0] = None
             refresh_logs()
 
@@ -153,11 +196,13 @@ def open_habit_tracker():
         index = log_listbox.curselection()
         if not index:
             return
-        actual_index = len(load_logs()) - 1 - index[0]
-        logs = load_logs()
+        actual_index = len(apply_filters(load_logs())) - 1 - index[0]
+        logs = apply_filters(load_logs())
         log = logs[actual_index]
         usage_entry.delete(0, tk.END)
         usage_entry.insert(0, log["usage"])
+        notes_text.delete("1.0", tk.END)
+        notes_text.insert(tk.END, log.get("notes", ""))
         intentional_var.set(log["intentional"])
         selected_index[0] = actual_index
 
@@ -169,21 +214,23 @@ def open_habit_tracker():
 
         logs = load_logs()
         logs[idx]["usage"] = usage_entry.get().strip()
+        logs[idx]["notes"] = notes_text.get("1.0", tk.END).strip()
         logs[idx]["intentional"] = intentional_var.get()
 
         with open(LOG_FILE, "w") as f:
             json.dump(logs, f, indent=4)
         messagebox.showinfo("Saved", "Changes saved.", parent=window)
         usage_entry.delete(0, tk.END)
+        notes_text.delete("1.0", tk.END)
         selected_index[0] = None
         refresh_logs()
 
-   
+ 
     tk.Button(button_frame, text="Add Entry", command=submit_log).pack(side="left", padx=5)
     tk.Button(button_frame, text="Save Changes", command=save_edit).pack(side="left", padx=5)
     tk.Button(button_frame, text="Delete Entry", command=delete_log).pack(side="left", padx=5)
 
-  
+   
     tk.Label(window, text="Past Logs:").pack(pady=(10, 0))
     log_frame = tk.Frame(window)
     log_frame.pack(fill="both", expand=True, padx=10, pady=5)
@@ -191,5 +238,8 @@ def open_habit_tracker():
     log_listbox = tk.Listbox(log_frame, height=15)
     log_listbox.pack(fill="both", expand=True)
     log_listbox.bind("<<ListboxSelect>>", lambda e: load_selected())
+
+   
+    tk.Button(filter_frame, text="Apply Filters", command=refresh_logs).grid(row=0, column=6, padx=5)
 
     refresh_logs()
