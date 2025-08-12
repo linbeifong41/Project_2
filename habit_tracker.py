@@ -3,6 +3,8 @@ from tkinter import messagebox, ttk
 import json
 import os
 from datetime import datetime
+from collections import Counter
+from datetime import timedelta
 
 LOG_FILE = "tech_habit_logs.json"
 
@@ -46,6 +48,106 @@ def get_clean_streak():
         streak += 1
 
     return streak
+
+REFLECTION_FILE = "reflection_notes.json"
+
+def open_reflection_window():
+    window = tk.Toplevel()
+    window.title("Reflection & Insights")
+    window.geometry("700x600")
+
+    logs = load_logs()
+
+    today = datetime.now().date()
+    start_date = today - timedelta(days=30)
+
+    recent_logs = [
+        log for log in logs 
+        if start_date <= datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date() <= today
+    ]
+
+    total_logs = len(recent_logs)
+    intentional_count = sum(1 for log in recent_logs if log["intentional"] == "Yes")
+    unintentional_count = total_logs - intentional_count
+    intentional_pct = (intentional_count / total_logs * 100) if total_logs else 0
+
+    words = []
+    for log in recent_logs:
+        words.extend(log["usage"].lower().split())
+        words.extend(log.get("notes", "").lower().split())
+    word_counts = Counter(words).most_common(5)
+
+    hours = [datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").hour for log in recent_logs]
+    hour_counts = Counter(hours).most_common(3)
+
+    summary_frame = tk.Frame(window)
+    summary_frame.pack(pady=10, padx=10, fill="x")
+
+    tk.Label(summary_frame, text=f"Logs in last 30 days: {total_logs}").pack(anchor="w")
+    tk.Label(summary_frame, text=f"Intentional usage: {intentional_count} ({intentional_pct:.1f}%)").pack(anchor="w")
+    tk.Label(summary_frame, text=f"Unintentional usage: {unintentional_count}").pack(anchor="w")
+
+    tk.Label(summary_frame, text="Top 5 most common words:").pack(anchor="w")
+    for word, count in word_counts:
+        tk.Label(summary_frame, text=f"- {word}: {count}").pack(anchor="w")
+
+    tk.Label(summary_frame, text="Top 3 peak usage hours:").pack(anchor="w")
+    for hour, count in hour_counts:
+        tk.Label(summary_frame, text=f"- {hour}:00 — {count} uses").pack(anchor="w")
+
+    tk.Label(window, text="Your Reflection Notes (saved per day):").pack(anchor="w", padx=10, pady=(10,0))
+
+    reflection_text = tk.Text(window, height=8, width=80)
+    reflection_text.pack(padx=10, pady=5)
+
+    def load_reflection():
+        if os.path.exists(REFLECTION_FILE):
+            with open(REFLECTION_FILE, "r") as f:
+                return json.load(f)
+        return {}
+
+    def save_reflection(text):
+        reflections = load_reflection()
+        date_key = today.strftime("%Y-%m-%d")
+        reflections[date_key] = text
+        with open(REFLECTION_FILE, "w") as f:
+            json.dump(reflections, f, indent=4)
+
+    reflections = load_reflection()
+    reflection_text.insert(tk.END, reflections.get(today.strftime("%Y-%m-%d"), ""))
+
+    def save_reflection_cmd():
+        text = reflection_text.get("1.0", tk.END).strip()
+        save_reflection(text)
+        messagebox.showinfo("Saved", "Reflection notes saved.", parent=window)
+
+    save_btn = tk.Button(window, text="Save Reflection Notes", command=save_reflection_cmd)
+    save_btn.pack(pady=(0, 10))
+
+    def export_report():
+        lines = [
+            f"Reflection Report for {today.strftime('%Y-%m-%d')}\n",
+            f"Total logs in last 30 days: {total_logs}",
+            f"Intentional usage: {intentional_count} ({intentional_pct:.1f}%)",
+            f"Unintentional usage: {unintentional_count}\n",
+            "Top 5 most common words:"
+        ]
+        for word, count in word_counts:
+            lines.append(f"- {word}: {count}")
+        lines.append("\nTop 3 peak usage hours:")
+        for hour, count in hour_counts:
+            lines.append(f"- {hour}:00 — {count} uses")
+        lines.append("\nYour Reflection Notes:")
+        lines.append(reflection_text.get("1.0", tk.END).strip())
+
+        filename = f"reflection_report_{today.strftime('%Y%m%d')}.txt"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+
+        messagebox.showinfo("Exported", f"Report exported to {filename}", parent=window)
+
+    export_btn = tk.Button(window, text="Export Reflection Report to TXT", command=export_report)
+    export_btn.pack(pady=(0,10))
 
 def open_habit_tracker():
     window = tk.Toplevel()
@@ -122,7 +224,6 @@ def open_habit_tracker():
 
         filtered = []
         for log in logs:
-            # Search in usage, notes, and keywords
             if keyword:
                 in_usage = keyword in log["usage"].lower()
                 in_notes = keyword in log.get("notes", "").lower()
@@ -178,7 +279,7 @@ def open_habit_tracker():
 
         if date_str:
             try:
-                datetime.strptime(date_str, "%Y-%m-%d")  # Validate date format
+                datetime.strptime(date_str, "%Y-%m-%d")
                 timestamp = f"{date_str} {datetime.now().strftime('%H:%M:%S')}"
             except ValueError:
                 messagebox.showwarning("Invalid Date", "Date must be in YYYY-MM-DD format.", parent=window)
@@ -270,6 +371,8 @@ def open_habit_tracker():
     tk.Button(button_frame, text="Add Entry", command=submit_log).pack(side="left", padx=5)
     tk.Button(button_frame, text="Save Changes", command=save_edit).pack(side="left", padx=5)
     tk.Button(button_frame, text="Delete Entry", command=delete_log).pack(side="left", padx=5)
+    tk.Button(button_frame, text="Open Reflection & Insights", command=open_reflection_window).pack(side="left", padx=5)
+
 
     tk.Label(window, text="Past Logs:").pack(pady=(10, 0))
     log_frame = tk.Frame(window)
