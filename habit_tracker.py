@@ -149,6 +149,55 @@ def open_reflection_window():
     export_btn = tk.Button(window, text="Export Reflection Report to TXT", command=export_report)
     export_btn.pack(pady=(0,10))
 
+
+def open_streak_badges():
+    streak = get_clean_streak()
+    
+    badges = [
+        {"days": 3, "name": "Bronze Badge"},
+        {"days": 7, "name": "Silver Badge"},
+        {"days": 14, "name": "Gold Badge"},
+        {"days": 30, "name": "Platinum Badge"},
+    ]
+    
+    window = tk.Toplevel()
+    window.title("Streak Badges")
+    window.geometry("500x200")
+    
+    tk.Label(window, text=f"Current Clean Streak: {streak} day{'s' if streak != 1 else ''}", font=("Arial", 12, "bold")).pack(pady=10)
+    
+    badge_frame = tk.Frame(window)
+    badge_frame.pack(pady=10)
+    
+    for badge in badges:
+        unlocked = streak >= badge["days"]
+        color = "green" if unlocked else "gray"
+        
+        frame = tk.Frame(badge_frame, width=100, height=100)
+        frame.pack(side="left", padx=10)
+        frame.pack_propagate(False)
+        
+        canvas = tk.Canvas(frame, width=80, height=80)
+        canvas.pack()
+        canvas.create_oval(10, 10, 70, 70, fill=color, outline="black")
+        canvas.create_text(40, 40, text=str(badge["days"]), font=("Arial", 12, "bold"), fill="white")
+        
+        tk.Label(frame, text=badge["name"], font=("Arial", 10)).pack(pady=2)
+        
+        def make_hover_text(b=badge, u=unlocked):
+            def on_enter(event):
+                msg = f"Requires {b['days']} day{'s' if b['days'] != 1 else ''} streak.\n"
+                msg += "Unlocked!" if u else f"{b['days'] - streak} day{'s' if b['days'] - streak != 1 else ''} to unlock."
+                tooltip_label.config(text=msg)
+            return on_enter
+
+        canvas.bind("<Enter>", make_hover_text())
+    
+    tooltip_label = tk.Label(window, text="", font=("Arial", 10), fg="blue")
+    tooltip_label.pack(pady=5)
+
+
+
 def open_habit_tracker():
     window = tk.Toplevel()
     window.title("Tech Habit Tracker")
@@ -372,6 +421,8 @@ def open_habit_tracker():
     tk.Button(button_frame, text="Save Changes", command=save_edit).pack(side="left", padx=5)
     tk.Button(button_frame, text="Delete Entry", command=delete_log).pack(side="left", padx=5)
     tk.Button(button_frame, text="Open Reflection & Insights", command=open_reflection_window).pack(side="left", padx=5)
+    tk.Button(button_frame, text="View Streak Badges", command=open_streak_badges).pack(side="left", padx=5)
+
 
 
     tk.Label(window, text="Past Logs:").pack(pady=(10, 0))
