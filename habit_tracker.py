@@ -5,6 +5,21 @@ import os
 from datetime import datetime
 from collections import Counter
 from datetime import timedelta
+import random
+
+
+BADGE_FILE = "badge_data.json"
+
+def load_last_badge():
+    if os.path.exists(BADGE_FILE):
+        with open(BADGE_FILE, "r") as f:
+            return json.load(f).get("last_badge", 0)
+    return 0
+
+def save_last_badge(days):
+    with open(BADGE_FILE, "w") as f:
+        json.dump({"last_badge": days}, f)
+
 
 LOG_FILE = "tech_habit_logs.json"
 
@@ -203,6 +218,25 @@ def open_habit_tracker():
     window.title("Tech Habit Tracker")
     window.geometry("650x750")
 
+    quotes = [
+    "Remember: Mindful usage leads to better focus!",
+    "Take control of your tech, don't let it control you.",
+    "Small steps every day build a strong streak.",
+    "Each intentional choice counts.",
+    "Focus on progress, not perfection.",
+    "A clear mind starts with mindful habits.",
+    "Celebrate every day you stay intentional.",
+    "Awareness is the first step to change.",
+    "Today is another chance to improve your streak.",
+    "Be kind to yourself while building habits."
+    ]
+
+    quote_index = datetime.now().timetuple().tm_yday % len(quotes)
+    daily_quote = quotes[quote_index]
+
+    quote_label = tk.Label(window, text=daily_quote, font=("Arial", 11, "italic"), fg="blue", wraplength=600, justify="center")
+    quote_label.pack(pady=(10, 5))
+
     selected_index = [None]
 
 
@@ -351,6 +385,19 @@ def open_habit_tracker():
         date_input_entry.delete(0, tk.END)
         refresh_logs()
         messagebox.showinfo("Saved", "Your tech habit was logged.", parent=window)
+        
+
+        current_streak = get_clean_streak()
+        last_badge = load_last_badge()
+
+        badge_milestones = [3, 7, 14, 30]
+        new_badges = [b for b in badge_milestones if last_badge < b <= current_streak]
+
+        if new_badges:
+            save_last_badge(max(new_badges))
+            badge_names = {3: "Bronze Badge", 7: "Silver Badge", 14: "Gold Badge", 30: "Platinum Badge"}
+            unlocked_badge_name = badge_names[max(new_badges)]
+            messagebox.showinfo("🏆 New Badge Unlocked!", f"Congratulations! You earned the {unlocked_badge_name}!", parent=window)
 
     def delete_log():
         index = log_listbox.curselection()
@@ -422,7 +469,7 @@ def open_habit_tracker():
     tk.Button(button_frame, text="Delete Entry", command=delete_log).pack(side="left", padx=5)
     tk.Button(button_frame, text="Open Reflection & Insights", command=open_reflection_window).pack(side="left", padx=5)
     tk.Button(button_frame, text="View Streak Badges", command=open_streak_badges).pack(side="left", padx=5)
-
+    
 
 
     tk.Label(window, text="Past Logs:").pack(pady=(10, 0))
