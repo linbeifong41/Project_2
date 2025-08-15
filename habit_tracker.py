@@ -5,7 +5,23 @@ import os
 from datetime import datetime
 from collections import Counter
 from datetime import timedelta
+from tkinter import simpledialog
 import random
+
+
+TEMPLATE_FILE = "templates.json"
+
+def load_templates():
+    if os.path.exists(TEMPLATE_FILE):
+        with open(TEMPLATE_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_template(template):
+    templates = load_templates()
+    templates.append(template)
+    with open(TEMPLATE_FILE, "w") as f:
+        json.dump(templates, f, indent=4)
 
 
 BADGE_FILE = "badge_data.json"
@@ -236,6 +252,56 @@ def open_habit_tracker():
 
     quote_label = tk.Label(window, text=daily_quote, font=("Arial", 11, "italic"), fg="blue", wraplength=600, justify="center")
     quote_label.pack(pady=(10, 5))
+
+
+    tk.Label(window, text="Quick-Add Templates:").pack(pady=(10, 0))
+    template_frame = tk.Frame(window)
+    template_frame.pack(pady=5)
+
+    template_var = tk.StringVar()
+    template_dropdown = ttk.Combobox(template_frame, textvariable=template_var, values=[], width=40, state="readonly")
+    template_dropdown.pack(side="left", padx=5)
+
+    def refresh_template_dropdown():
+        templates = load_templates()
+        template_dropdown['values'] = [t['name'] for t in templates]
+
+    def apply_template():
+        selected = template_var.get()
+        if not selected:
+            return
+        templates = load_templates()
+        for t in templates:
+            if t['name'] == selected:
+                usage_entry.delete(0, tk.END)
+                usage_entry.insert(0, t['usage'])
+                notes_text.delete("1.0", tk.END)
+                notes_text.insert(tk.END, t.get('notes', ''))
+                keywords_entry.delete(0, tk.END)
+                keywords_entry.insert(0, ", ".join(t.get('keywords', [])))
+                intentional_var.set(t.get('intentional', 'Yes'))
+                break
+
+    tk.Button(template_frame, text="Apply Template", command=apply_template).pack(side="left", padx=5)
+
+    def save_current_as_template():
+        name = simpledialog.askstring("Template Name", "Enter a name for this template:", parent=window)
+        if not name:
+            return
+        template = {
+            "name": name,
+            "usage": usage_entry.get().strip(),
+            "notes": notes_text.get("1.0", tk.END).strip(),
+            "keywords": [kw.strip() for kw in keywords_entry.get().split(",") if kw.strip()],
+            "intentional": intentional_var.get()
+        }
+        save_template(template)
+        refresh_template_dropdown()
+        messagebox.showinfo("Saved", f"Template '{name}' saved.", parent=window)
+
+    tk.Button(template_frame, text="Save as Template", command=save_current_as_template).pack(side="left", padx=5)
+
+    refresh_template_dropdown()
 
     selected_index = [None]
 
