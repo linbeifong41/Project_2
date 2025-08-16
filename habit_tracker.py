@@ -191,13 +191,13 @@ def open_streak_badges():
         {"days": 30, "name": "Platinum Badge"},
     ]
     
-    window = tk.Toplevel()
-    window.title("Streak Badges")
-    window.geometry("500x200")
+    content_frame = tk.Toplevel()
+    content_frame.title("Streak Badges")
+    content_frame.geometry("500x200")
     
-    tk.Label(window, text=f"Current Clean Streak: {streak} day{'s' if streak != 1 else ''}", font=("Arial", 12, "bold")).pack(pady=10)
+    tk.Label(content_frame, text=f"Current Clean Streak: {streak} day{'s' if streak != 1 else ''}", font=("Arial", 12, "bold")).pack(pady=10)
     
-    badge_frame = tk.Frame(window)
+    badge_frame = tk.Frame(content_frame)
     badge_frame.pack(pady=10)
     
     for badge in badges:
@@ -224,7 +224,7 @@ def open_streak_badges():
 
         canvas.bind("<Enter>", make_hover_text())
     
-    tooltip_label = tk.Label(window, text="", font=("Arial", 10), fg="blue")
+    tooltip_label = tk.Label(content_frame, text="", font=("Arial", 10), fg="blue")
     tooltip_label.pack(pady=5)
 
 
@@ -233,6 +233,36 @@ def open_habit_tracker():
     window = tk.Toplevel()
     window.title("Tech Habit Tracker")
     window.geometry("650x750")
+
+
+    main_frame = tk.Frame(window)
+    main_frame.pack(fill="both", expand=True)
+
+    canvas = tk.Canvas(main_frame)
+    canvas.pack(side="left", fill="both", expand=True)
+
+    v_scroll = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+    v_scroll.pack(side="right", fill="y")
+
+    canvas.configure(yscrollcommand=v_scroll.set)
+
+    content_frame = tk.Frame(canvas)
+    window_id = canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+    def on_canvas_configure(event):
+        canvas.itemconfig(window_id, width=event.width)
+
+    canvas.bind("<Configure>", on_canvas_configure)
+
+    def on_content_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    content_frame.bind("<Configure>", on_content_configure)
+
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
     quotes = [
     "Remember: Mindful usage leads to better focus!",
@@ -250,12 +280,12 @@ def open_habit_tracker():
     quote_index = datetime.now().timetuple().tm_yday % len(quotes)
     daily_quote = quotes[quote_index]
 
-    quote_label = tk.Label(window, text=daily_quote, font=("Arial", 11, "italic"), fg="blue", wraplength=600, justify="center")
+    quote_label = tk.Label(content_frame, text=daily_quote, font=("Arial", 11, "italic"), fg="blue", wraplength=600, justify="center")
     quote_label.pack(pady=(10, 5))
 
 
-    tk.Label(window, text="Quick-Add Templates:").pack(pady=(10, 0))
-    template_frame = tk.Frame(window)
+    tk.Label(content_frame, text="Quick-Add Templates:").pack(pady=(10, 0))
+    template_frame = tk.Frame(content_frame)
     template_frame.pack(pady=5)
 
     template_var = tk.StringVar()
@@ -277,27 +307,27 @@ def open_habit_tracker():
                 usage_entry.insert(0, t['usage'])
                 notes_text.delete("1.0", tk.END)
                 notes_text.insert(tk.END, t.get('notes', ''))
-                keywords_entry.delete(0, tk.END)
-                keywords_entry.insert(0, ", ".join(t.get('keywords', [])))
+                tags_entry.delete(0, tk.END)
+                tags_entry.insert(0, ", ".join(t.get('keywords', [])))
                 intentional_var.set(t.get('intentional', 'Yes'))
                 break
 
     tk.Button(template_frame, text="Apply Template", command=apply_template).pack(side="left", padx=5)
 
     def save_current_as_template():
-        name = simpledialog.askstring("Template Name", "Enter a name for this template:", parent=window)
+        name = simpledialog.askstring("Template Name", "Enter a name for this template:", parent=content_frame)
         if not name:
             return
         template = {
             "name": name,
             "usage": usage_entry.get().strip(),
             "notes": notes_text.get("1.0", tk.END).strip(),
-            "keywords": [kw.strip() for kw in keywords_entry.get().split(",") if kw.strip()],
+            "tags": [kw.strip() for kw in tags_entry.get().split(",") if kw.strip()],
             "intentional": intentional_var.get()
         }
         save_template(template)
         refresh_template_dropdown()
-        messagebox.showinfo("Saved", f"Template '{name}' saved.", parent=window)
+        messagebox.showinfo("Saved", f"Template '{name}' saved.", parent=content_frame)
 
     tk.Button(template_frame, text="Save as Template", command=save_current_as_template).pack(side="left", padx=5)
 
@@ -306,34 +336,34 @@ def open_habit_tracker():
     selected_index = [None]
 
 
-    tk.Label(window, text="Tech Usage Entry:").pack(pady=(10, 0))
-    usage_entry = tk.Entry(window, width=50)
+    tk.Label(content_frame, text="Tech Usage Entry:").pack(pady=(10, 0))
+    usage_entry = tk.Entry(content_frame, width=50)
     usage_entry.pack(pady=5)
 
-    tk.Label(window, text="Notes / Journal:").pack()
-    notes_text = tk.Text(window, width=50, height=4)
+    tk.Label(content_frame, text="Notes:").pack()
+    notes_text = tk.Text(content_frame, width=50, height=4)
     notes_text.pack(pady=5)
 
-    tk.Label(window, text="Keywords (comma-separated):").pack()
-    keywords_entry = tk.Entry(window, width=50)
-    keywords_entry.pack(pady=5)
+    tk.Label(content_frame, text="Tags (comma-separated):").pack()
+    tags_entry = tk.Entry(content_frame, width=50)
+    tags_entry.pack(pady=5)
 
-    tk.Label(window, text="Date (YYYY-MM-DD) [optional]:").pack()
-    date_input_entry = tk.Entry(window, width=20)
+    tk.Label(content_frame, text="Date (YYYY-MM-DD) [optional]:").pack()
+    date_input_entry = tk.Entry(content_frame, width=20)
     date_input_entry.pack(pady=5)
 
-    tk.Label(window, text="Was it intentional?").pack()
+    tk.Label(content_frame, text="Was it intentional?").pack()
     intentional_var = tk.StringVar(value="Yes")
-    intent_frame = tk.Frame(window)
+    intent_frame = tk.Frame(content_frame)
     intent_frame.pack()
     tk.Radiobutton(intent_frame, text="Yes", variable=intentional_var, value="Yes").pack(side="left", padx=5)
     tk.Radiobutton(intent_frame, text="No", variable=intentional_var, value="No").pack(side="left", padx=5)
 
-    button_frame = tk.Frame(window)
+    button_frame = tk.Frame(content_frame)
     button_frame.pack(pady=10)
 
 
-    stats_frame = tk.LabelFrame(window, text="Today's Summary", padx=10, pady=5)
+    stats_frame = tk.LabelFrame(content_frame, text="Today's Summary", padx=10, pady=5)
     stats_frame.pack(fill="x", padx=10, pady=(5, 10))
 
     total_label = tk.Label(stats_frame, text="Total: 0")
@@ -347,13 +377,13 @@ def open_habit_tracker():
     streak_label = tk.Label(stats_frame, text="Clean Streak: 0 days")
     streak_label.pack(anchor="w", pady=1)
 
-    filter_frame = tk.LabelFrame(window, text="Search & Filter")
+    filter_frame = tk.LabelFrame(content_frame, text="Search & Filter")
     filter_frame.pack(fill="x", padx=10, pady=(0, 5))
 
-    tk.Label(filter_frame, text="Keyword:").grid(row=0, column=0, padx=5, pady=2)
-    keyword_var = tk.StringVar()
-    keyword_entry = tk.Entry(filter_frame, textvariable=keyword_var, width=15)
-    keyword_entry.grid(row=0, column=1, padx=5, pady=2)
+    tk.Label(filter_frame, text="Tags (comma-separated):").grid(row=1, column=0, padx=5, pady=2)
+    tag_filter_var = tk.StringVar()
+    tag_entry = tk.Entry(filter_frame, textvariable=tag_filter_var, width=20)
+    tag_entry.grid(row=1, column=1, padx=5, pady=2)
 
     tk.Label(filter_frame, text="Intention:").grid(row=0, column=2, padx=5, pady=2)
     intention_filter_var = tk.StringVar(value="All")
@@ -367,22 +397,25 @@ def open_habit_tracker():
     date_entry.grid(row=0, column=5, padx=5, pady=2)
 
     def apply_filters(logs):
-        keyword = keyword_var.get().strip().lower()
         intention_filter = intention_filter_var.get()
         date_filter = date_var.get().strip()
+        tag_filter = tag_filter_var.get().strip().lower().split(",")
+        tag_filter = [t.strip() for t in tag_filter if t.strip()]
+
 
         filtered = []
-        for log in logs:
-            if keyword:
-                in_usage = keyword in log["usage"].lower()
-                in_notes = keyword in log.get("notes", "").lower()
-                in_keywords = keyword in " ".join(log.get("keywords", [])).lower()
-                if not (in_usage or in_notes or in_keywords):
-                    continue
+        for log in logs:    
             if intention_filter != "All" and log["intentional"] != intention_filter:
                 continue
+
             if date_filter and not log["timestamp"].startswith(date_filter):
                 continue
+
+            if tag_filter:
+                log_tags = [t.lower() for t in log.get("tags", [])]
+                if not all(t in log_tags for t in tag_filter):
+                    continue
+
             filtered.append(log)
         return filtered
 
@@ -419,11 +452,11 @@ def open_habit_tracker():
     def submit_log():
         text = usage_entry.get().strip()
         notes = notes_text.get("1.0", tk.END).strip()
-        keywords = [kw.strip() for kw in keywords_entry.get().split(",") if kw.strip()]
+        tags = [kw.strip() for kw in tags_entry.get().split(",") if kw.strip()]
         date_str = date_input_entry.get().strip()
 
         if not text:
-            messagebox.showwarning("Missing", "Please enter what you did.", parent=window)
+            messagebox.showwarning("Missing", "Please enter what you did.", parent=content_frame)
             return
 
         if date_str:
@@ -431,7 +464,7 @@ def open_habit_tracker():
                 datetime.strptime(date_str, "%Y-%m-%d")
                 timestamp = f"{date_str} {datetime.now().strftime('%H:%M:%S')}"
             except ValueError:
-                messagebox.showwarning("Invalid Date", "Date must be in YYYY-MM-DD format.", parent=window)
+                messagebox.showwarning("Invalid Date", "Date must be in YYYY-MM-DD format.", parent=content_frame)
                 return
         else:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -439,7 +472,7 @@ def open_habit_tracker():
         entry = {
             "usage": text,
             "notes": notes,
-            "keywords": keywords,
+            "tags": [t.strip() for t in tags_entry.get().split(",") if t.strip()],
             "intentional": intentional_var.get(),
             "timestamp": timestamp
         }
@@ -447,10 +480,10 @@ def open_habit_tracker():
         save_log(entry)
         usage_entry.delete(0, tk.END)
         notes_text.delete("1.0", tk.END)
-        keywords_entry.delete(0, tk.END)
+        tags_entry.delete(0, tk.END)
         date_input_entry.delete(0, tk.END)
         refresh_logs()
-        messagebox.showinfo("Saved", "Your tech habit was logged.", parent=window)
+        messagebox.showinfo("Saved", "Your tech habit was logged.", parent=content_frame)
         
 
         current_streak = get_clean_streak()
@@ -463,7 +496,7 @@ def open_habit_tracker():
             save_last_badge(max(new_badges))
             badge_names = {3: "Bronze Badge", 7: "Silver Badge", 14: "Gold Badge", 30: "Platinum Badge"}
             unlocked_badge_name = badge_names[max(new_badges)]
-            messagebox.showinfo("🏆 New Badge Unlocked!", f"Congratulations! You earned the {unlocked_badge_name}!", parent=window)
+            messagebox.showinfo("🏆 New Badge Unlocked!", f"Congratulations! You earned the {unlocked_badge_name}!", parent=content_frame)
 
     def delete_log():
         index = log_listbox.curselection()
@@ -471,13 +504,13 @@ def open_habit_tracker():
             return
         actual_index = len(apply_filters(load_logs())) - 1 - index[0]
         logs = load_logs()
-        if messagebox.askyesno("Delete", "Are you sure you want to delete this log?", parent=window):
+        if messagebox.askyesno("Delete", "Are you sure you want to delete this log?", parent=content_frame):
             logs.pop(actual_index)
             with open(LOG_FILE, "w") as f:
                 json.dump(logs, f, indent=4)
             usage_entry.delete(0, tk.END)
             notes_text.delete("1.0", tk.END)
-            keywords_entry.delete(0, tk.END)
+            tags_entry.delete(0, tk.END)
             date_input_entry.delete(0, tk.END)
             selected_index[0] = None
             refresh_logs()
@@ -493,8 +526,8 @@ def open_habit_tracker():
         usage_entry.insert(0, log["usage"])
         notes_text.delete("1.0", tk.END)
         notes_text.insert(tk.END, log.get("notes", ""))
-        keywords_entry.delete(0, tk.END)
-        keywords_entry.insert(0, ", ".join(log.get("keywords", [])))
+        tags_entry.delete(0, tk.END)
+        tags_entry.insert(0, ", ".join(log.get("tags", [])))
         date_input_entry.delete(0, tk.END)
         date_input_entry.insert(0, log["timestamp"].split()[0])
         intentional_var.set(log["intentional"])
@@ -503,13 +536,13 @@ def open_habit_tracker():
     def save_edit():
         idx = selected_index[0]
         if idx is None:
-            messagebox.showwarning("No Selection", "Select a log to edit first.", parent=window)
+            messagebox.showwarning("No Selection", "Select a log to edit first.", parent=content_frame)
             return
 
         logs = load_logs()
         logs[idx]["usage"] = usage_entry.get().strip()
         logs[idx]["notes"] = notes_text.get("1.0", tk.END).strip()
-        logs[idx]["keywords"] = [kw.strip() for kw in keywords_entry.get().split(",") if kw.strip()]
+        logs[idx]["tags"] = [t.strip() for t in tags_entry.get().split(",") if t.strip()]
         logs[idx]["intentional"] = intentional_var.get()
         date_str = date_input_entry.get().strip()
         if date_str:
@@ -517,15 +550,15 @@ def open_habit_tracker():
                 datetime.strptime(date_str, "%Y-%m-%d")
                 logs[idx]["timestamp"] = f"{date_str} {logs[idx]['timestamp'].split()[1]}"
             except ValueError:
-                messagebox.showwarning("Invalid Date", "Date must be in YYYY-MM-DD format.", parent=window)
+                messagebox.showwarning("Invalid Date", "Date must be in YYYY-MM-DD format.", parent=content_frame)
                 return
 
         with open(LOG_FILE, "w") as f:
             json.dump(logs, f, indent=4)
-        messagebox.showinfo("Saved", "Changes saved.", parent=window)
+        messagebox.showinfo("Saved", "Changes saved.", parent=content_frame)
         usage_entry.delete(0, tk.END)
         notes_text.delete("1.0", tk.END)
-        keywords_entry.delete(0, tk.END)
+        tags_entry.delete(0, tk.END)
         date_input_entry.delete(0, tk.END)
         selected_index[0] = None
         refresh_logs()
@@ -538,8 +571,8 @@ def open_habit_tracker():
     
 
 
-    tk.Label(window, text="Past Logs:").pack(pady=(10, 0))
-    log_frame = tk.Frame(window)
+    tk.Label(content_frame, text="Past Logs:").pack(pady=(10, 0))
+    log_frame = tk.Frame(content_frame)
     log_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
     log_listbox = tk.Listbox(log_frame, height=15)
