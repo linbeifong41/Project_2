@@ -567,7 +567,8 @@ def open_habit_tracker():
     tk.Button(button_frame, text="Delete Entry", command=delete_log).pack(side="left", padx=5)
     tk.Button(button_frame, text="Open Reflection & Insights", command=open_reflection_window).pack(side="left", padx=5)
     tk.Button(button_frame, text="View Streak Badges", command=open_streak_badges).pack(side="left", padx=5)
-    
+    tk.Button(button_frame, text="View Usage Stats", command=open_usage_stats).pack(side="left", padx=5)
+
 
     tk.Label(content_frame, text="Past Logs:").pack(pady=(10, 0))
     log_frame = tk.Frame(content_frame)
@@ -580,3 +581,86 @@ def open_habit_tracker():
     tk.Button(filter_frame, text="Apply Filters", command=refresh_logs).grid(row=0, column=6, padx=5)
 
     refresh_logs()
+
+def open_usage_stats():
+    window = tk.Toplevel()
+    window.title("Usage Stats")
+    window.geometry("600x500")
+    
+    logs = load_logs()
+    if not logs:
+        messagebox.showinfo("No Data", "No logs available to analyze.", parent=window)
+        return
+
+    window = tk.Toplevel()
+    window.title("Usage Stats & Insights")
+    window.geometry("600x600")
+
+    
+    tag_counts = {}
+    for log in logs:
+        for tag in log.get("tags", []):
+            t = tag.strip().lower()
+            if t:
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+
+    tag_frame = tk.LabelFrame(window, text="Top Tags", padx=10, pady=5)
+    tag_frame.pack(fill="x", padx=10, pady=5)
+
+    if sorted_tags:
+        for tag, count in sorted_tags[:10]:
+            tk.Label(tag_frame, text=f"{tag}: {count}").pack(anchor="w")
+    else:
+        tk.Label(tag_frame, text="No tags logged yet.").pack(anchor="w")
+
+    
+    intentional_count = sum(1 for log in logs if log.get("intentional") == "Yes")
+    unintentional_count = len(logs) - intentional_count
+
+    intent_frame = tk.LabelFrame(window, text="Intentional vs Unintentional Usage", padx=10, pady=5)
+    intent_frame.pack(fill="x", padx=10, pady=5)
+
+    total = intentional_count + unintentional_count
+    if total > 0:
+        
+        int_width = int(200 * intentional_count / total)
+        unint_width = int(200 * unintentional_count / total)
+
+        tk.Label(intent_frame, text=f"Intentional: {intentional_count}").pack(anchor="w")
+        tk.Label(intent_frame, text=f"Unintentional: {unintentional_count}").pack(anchor="w")
+
+        bar_frame = tk.Frame(intent_frame)
+        bar_frame.pack(pady=5)
+        tk.Label(bar_frame, bg="green", width=int_width, height=1).pack(side="left")
+        tk.Label(bar_frame, bg="red", width=unint_width, height=1).pack(side="left")
+    else:
+        tk.Label(intent_frame, text="No logs yet.").pack(anchor="w")
+
+    
+    today = datetime.now().date()
+    daily_counts = {}
+    for i in range(7):
+        day = today - timedelta(days=i)
+        daily_counts[day] = 0
+
+    for log in logs:
+        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+        if log_date in daily_counts:
+            daily_counts[log_date] += 1
+
+    week_frame = tk.LabelFrame(window, text="Logs Last 7 Days", padx=10, pady=5)
+    week_frame.pack(fill="x", padx=10, pady=5)
+
+    max_count = max(daily_counts.values()) if daily_counts else 1
+    for day, count in sorted(daily_counts.items()):
+        bar_length = int(200 * count / max_count) if max_count else 0
+        day_str = day.strftime("%a %d")
+        frame = tk.Frame(week_frame)
+        frame.pack(fill="x", pady=2)
+        tk.Label(frame, text=day_str, width=10, anchor="w").pack(side="left")
+        tk.Label(frame, bg="blue", width=bar_length, height=1).pack(side="left")
+        tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
+
+    tk.Button(window, text="Close", command=window.destroy).pack(pady=10)
+    
