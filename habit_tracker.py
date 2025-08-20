@@ -586,17 +586,12 @@ def open_usage_stats():
     window = tk.Toplevel()
     window.title("Usage Stats")
     window.geometry("600x500")
-    
+
     logs = load_logs()
     if not logs:
         messagebox.showinfo("No Data", "No logs available to analyze.", parent=window)
         return
 
-    window = tk.Toplevel()
-    window.title("Usage Stats & Insights")
-    window.geometry("600x600")
-
-    
     tag_counts = {}
     for log in logs:
         for tag in log.get("tags", []):
