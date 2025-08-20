@@ -585,13 +585,13 @@ def open_habit_tracker():
 def open_usage_stats():
     window = tk.Toplevel()
     window.title("Usage Stats")
-    window.geometry("600x500")
+    window.geometry("600x650")  
 
     logs = load_logs()
     if not logs:
         messagebox.showinfo("No Data", "No logs available to analyze.", parent=window)
         return
-
+    
     tag_counts = {}
     for log in logs:
         for tag in log.get("tags", []):
@@ -618,7 +618,6 @@ def open_usage_stats():
 
     total = intentional_count + unintentional_count
     if total > 0:
-        
         int_width = int(200 * intentional_count / total)
         unint_width = int(200 * unintentional_count / total)
 
@@ -634,11 +633,7 @@ def open_usage_stats():
 
     
     today = datetime.now().date()
-    daily_counts = {}
-    for i in range(7):
-        day = today - timedelta(days=i)
-        daily_counts[day] = 0
-
+    daily_counts = {today - timedelta(days=i): 0 for i in range(7)}
     for log in logs:
         log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
         if log_date in daily_counts:
@@ -657,5 +652,54 @@ def open_usage_stats():
         tk.Label(frame, bg="blue", width=bar_length, height=1).pack(side="left")
         tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
 
+    
+    insights_frame = tk.LabelFrame(window, text="Usage Patterns & Insights", padx=10, pady=5)
+    insights_frame.pack(fill="x", padx=10, pady=5)
+
+    
+    dow_counts = [0]*7
+    for log in logs:
+        dow = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").weekday()
+        dow_counts[dow] += 1
+    peak_dow_index = dow_counts.index(max(dow_counts)) if dow_counts else 0
+    dow_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    tk.Label(insights_frame, text=f"Peak Day of Week: {dow_names[peak_dow_index]} ({dow_counts[peak_dow_index]} logs)").pack(anchor="w")
+
+    
+    hour_counts = [0]*24
+    for log in logs:
+        hour = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").hour
+        hour_counts[hour] += 1
+    peak_hour = hour_counts.index(max(hour_counts)) if hour_counts else 0
+    tk.Label(insights_frame, text=f"Peak Hour: {peak_hour}:00 ({hour_counts[peak_hour]} logs)").pack(anchor="w")
+
+    
+    longest_streak = 0
+    current_streak = 0
+    sorted_logs = sorted(logs, key=lambda l: l["timestamp"])
+    last_date = None
+    for log in sorted_logs:
+        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+        if log["intentional"] == "Yes":
+            if last_date is None or (log_date - last_date).days == 1:
+                current_streak += 1
+            else:
+                current_streak = 1
+            longest_streak = max(longest_streak, current_streak)
+        else:
+            current_streak = 0
+        last_date = log_date
+    tk.Label(insights_frame, text=f"Longest Intentional Streak: {longest_streak} day{'s' if longest_streak != 1 else ''}").pack(anchor="w")
+
+    
+    top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    tag_text = ", ".join([f"{t[0]} ({t[1]})" for t in top_tags]) if top_tags else "None"
+    tk.Label(insights_frame, text=f"Top Tags: {tag_text}").pack(anchor="w")
+
+    
+    suggested_goal = f"Try to log more intentionally on {dow_names[peak_dow_index]}." if total else "Start logging your habits!"
+    tk.Label(insights_frame, text=f"Suggested Habit Goal: {suggested_goal}", fg="blue").pack(anchor="w")
+
     tk.Button(window, text="Close", command=window.destroy).pack(pady=10)
+
     
