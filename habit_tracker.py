@@ -663,7 +663,12 @@ def open_usage_stats():
         dow_counts[dow] += 1
     peak_dow_index = dow_counts.index(max(dow_counts)) if dow_counts else 0
     dow_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    tk.Label(insights_frame, text=f"Peak Day of Week: {dow_names[peak_dow_index]} ({dow_counts[peak_dow_index]} logs)").pack(anchor="w")
+    tk.Label(insights_frame, text="Peak Day of Week:", font=("Arial", 12, "underline")).pack(anchor="w", padx=5)
+    max_dow = max(dow_counts) if any(dow_counts) else 1
+    bar_len = int((dow_counts[peak_dow_index] / max_dow) * 30)  
+    bar = tk.Label(insights_frame, bg="purple", width=bar_len, height=1)
+    bar.pack(anchor="w", padx=20)
+    tk.Label(insights_frame, text=f"{dow_names[peak_dow_index]}: {dow_counts[peak_dow_index]} logs").pack(anchor="w", padx=20)
 
     
     hour_counts = [0]*24
@@ -671,7 +676,12 @@ def open_usage_stats():
         hour = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").hour
         hour_counts[hour] += 1
     peak_hour = hour_counts.index(max(hour_counts)) if hour_counts else 0
-    tk.Label(insights_frame, text=f"Peak Hour: {peak_hour}:00 ({hour_counts[peak_hour]} logs)").pack(anchor="w")
+    tk.Label(insights_frame, text="Peak Hour of Day:", font=("Arial", 12, "underline")).pack(anchor="w", padx=5)
+    max_hour = max(hour_counts) if any(hour_counts) else 1
+    bar_len = int((hour_counts[peak_hour] / max_hour) * 30) 
+    bar = tk.Label(insights_frame, bg="orange", width=bar_len, height=1)
+    bar.pack(anchor="w", padx=20)
+    tk.Label(insights_frame, text=f"{peak_hour}:00 - {hour_counts[peak_hour]} logs").pack(anchor="w", padx=20) 
 
     
     longest_streak = 0
