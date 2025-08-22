@@ -582,6 +582,31 @@ def open_habit_tracker():
 
     refresh_logs()
 
+
+def calculate_streaks(logs):
+    """Return current streak and longest streak of intentional usage."""
+    if not logs:
+        return 0, 0
+
+    sorted_logs = sorted(logs, key=lambda l: l["timestamp"])
+    current_streak = 0
+    longest_streak = 0
+    last_date = None
+
+    for log in sorted_logs:
+        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+        if log.get("intentional") == "Yes":
+            if last_date is None or (log_date - last_date).days == 1:
+                current_streak += 1
+            else:
+                current_streak = 1
+            longest_streak = max(longest_streak, current_streak)
+        else:
+            current_streak = 0
+        last_date = log_date
+
+    return current_streak, longest_streak
+
 def open_usage_stats():
     window = tk.Toplevel()
     window.title("Usage Stats")
@@ -684,21 +709,8 @@ def open_usage_stats():
     tk.Label(insights_frame, text=f"{peak_hour}:00 - {hour_counts[peak_hour]} logs").pack(anchor="w", padx=20) 
 
     
-    longest_streak = 0
-    current_streak = 0
-    sorted_logs = sorted(logs, key=lambda l: l["timestamp"])
-    last_date = None
-    for log in sorted_logs:
-        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
-        if log["intentional"] == "Yes":
-            if last_date is None or (log_date - last_date).days == 1:
-                current_streak += 1
-            else:
-                current_streak = 1
-            longest_streak = max(longest_streak, current_streak)
-        else:
-            current_streak = 0
-        last_date = log_date
+    current_streak, longest_streak = calculate_streaks(logs)
+    tk.Label(insights_frame, text=f"Current Intentional Streak: {current_streak} day{'s' if current_streak != 1 else ''}").pack(anchor="w")
     tk.Label(insights_frame, text=f"Longest Intentional Streak: {longest_streak} day{'s' if longest_streak != 1 else ''}").pack(anchor="w")
 
     
