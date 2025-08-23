@@ -678,6 +678,34 @@ def open_usage_stats():
         tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
 
     
+    month_frame = tk.LabelFrame(window, text="Current Month Usage", padx=10, pady=5)
+    month_frame.pack(fill="x", padx=10, pady=5)
+
+    today = datetime.now().date()
+    first_day_month = today.replace(day=1)
+
+    days_in_month = (today.replace(month=today.month % 12 + 1, day=1) - timedelta(days=1)).day
+    monthly_counts = {day: 0 for day in range(1, days_in_month + 1)}
+
+    for log in logs:
+        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+        if log_date.month == today.month and log_date.year == today.year:
+            monthly_counts[log_date.day] += 1
+    max_logs = max(monthly_counts.values()) if monthly_counts else 1
+    busiest_day = max(monthly_counts, key=monthly_counts.get) if monthly_counts else None
+
+    for day, count in monthly_counts.items():
+        bar_length = int((count / max_logs) * 30) if max_logs else 0
+        bar_color = "gold" if day == busiest_day else "lightgray"
+        frame = tk.Frame(month_frame)
+        frame.pack(fill="x", pady=1)
+        tk.Label(frame, text=f"{day:02d}", width=3, anchor="w").pack(side="left")
+        tk.Label(frame, bg=bar_color, width=bar_length, height=1).pack(side="left")
+        tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
+
+    avg_logs = sum(monthly_counts.values()) / len(monthly_counts) if monthly_counts else 0
+    tk.Label(month_frame, text=f"Average Daily Logs: {avg_logs:.2f}").pack(anchor="w", padx=5, pady=2)
+
     insights_frame = tk.LabelFrame(window, text="Usage Patterns & Insights", padx=10, pady=5)
     insights_frame.pack(fill="x", padx=10, pady=5)
 
