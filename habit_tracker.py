@@ -676,7 +676,38 @@ def open_usage_stats():
         tk.Label(frame, text=day_str, width=10, anchor="w").pack(side="left")
         tk.Label(frame, bg="blue", width=bar_length, height=1).pack(side="left")
         tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
+    
+    trend_frame = tk.LabelFrame(window, text="Tag Trends (Last 14 Days)", padx=10, pady=5)
+    trend_frame.pack(fill="x", padx=10, pady=5)
 
+    days_to_show = 14
+    trend_counts = {}
+    today = datetime.now().date()
+    dates = [today - timedelta(days=i) for i in range(days_to_show)]
+
+    top_tags_trend = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    for tag, _ in top_tags_trend:
+        trend_counts[tag] = {date: 0 for date in dates}
+
+    for log in logs:
+        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+        if log_date in dates:
+            for tag in log.get("tags", []):
+                t = tag.strip().lower()
+                if t in trend_counts:
+                    trend_counts[t][log_date] += 1
+
+    for tag, counts in trend_counts.items():
+        tk.Label(trend_frame, text=f"{tag}", font=("Arial", 10, "bold")).pack(anchor="w")
+        bar_frame = tk.Frame(trend_frame)
+        bar_frame.pack(fill="x", pady=1)
+        max_count = max(counts.values()) if counts else 1
+        for date in sorted(counts.keys()):
+            bar_len = int((counts[date] / max_count) * 20) if max_count else 0
+            color = "green" if counts[date] > 0 else "lightgray"
+            tk.Label(bar_frame, bg=color, width=bar_len, height=1).pack(side="left", padx=1)
+        tk.Label(bar_frame, text="")
+    
     
     month_frame = tk.LabelFrame(window, text="Current Month Usage", padx=10, pady=5)
     month_frame.pack(fill="x", padx=10, pady=5)
