@@ -610,13 +610,38 @@ def calculate_streaks(logs):
 def open_usage_stats():
     window = tk.Toplevel()
     window.title("Usage Stats")
-    window.geometry("600x650")  
+    window.geometry("600x650")
+
+    main_frame = tk.Frame(window)
+    main_frame.pack(fill="both", expand=True)
+
+    canvas = tk.Canvas(main_frame)
+    scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    scrollbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    scrollable_frame = tk.Frame(canvas)
+    canvas_window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+    def on_frame_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    scrollable_frame.bind("<Configure>", on_frame_configure)
+
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    canvas.bind_all("<MouseWheel>", _on_mousewheel) 
+    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units")) 
+    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))   
 
     logs = load_logs()
     if not logs:
         messagebox.showinfo("No Data", "No logs available to analyze.", parent=window)
         return
-    
+
     tag_counts = {}
     for log in logs:
         for tag in log.get("tags", []):
@@ -625,7 +650,7 @@ def open_usage_stats():
                 tag_counts[t] = tag_counts.get(t, 0) + 1
     sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
 
-    tag_frame = tk.LabelFrame(window, text="Top Tags", padx=10, pady=5)
+    tag_frame = tk.LabelFrame(scrollable_frame, text="Top Tags", padx=10, pady=5)
     tag_frame.pack(fill="x", padx=10, pady=5)
 
     if sorted_tags:
@@ -633,12 +658,11 @@ def open_usage_stats():
             tk.Label(tag_frame, text=f"{tag}: {count}").pack(anchor="w")
     else:
         tk.Label(tag_frame, text="No tags logged yet.").pack(anchor="w")
-
     
     intentional_count = sum(1 for log in logs if log.get("intentional") == "Yes")
     unintentional_count = len(logs) - intentional_count
 
-    intent_frame = tk.LabelFrame(window, text="Intentional vs Unintentional Usage", padx=10, pady=5)
+    intent_frame = tk.LabelFrame(scrollable_frame, text="Intentional vs Unintentional Usage", padx=10, pady=5)
     intent_frame.pack(fill="x", padx=10, pady=5)
 
     total = intentional_count + unintentional_count
@@ -664,7 +688,7 @@ def open_usage_stats():
         if log_date in daily_counts:
             daily_counts[log_date] += 1
 
-    week_frame = tk.LabelFrame(window, text="Logs Last 7 Days", padx=10, pady=5)
+    week_frame = tk.LabelFrame(scrollable_frame, text="Logs Last 7 Days", padx=10, pady=5)
     week_frame.pack(fill="x", padx=10, pady=5)
 
     max_count = max(daily_counts.values()) if daily_counts else 1
@@ -677,7 +701,7 @@ def open_usage_stats():
         tk.Label(frame, bg="blue", width=bar_length, height=1).pack(side="left")
         tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
     
-    trend_frame = tk.LabelFrame(window, text="Tag Trends (Last 14 Days)", padx=10, pady=5)
+    trend_frame = tk.LabelFrame(scrollable_frame, text="Tag Trends (Last 14 Days)", padx=10, pady=5)
     trend_frame.pack(fill="x", padx=10, pady=5)
 
     days_to_show = 14
@@ -709,7 +733,7 @@ def open_usage_stats():
         tk.Label(bar_frame, text="")
     
     
-    month_frame = tk.LabelFrame(window, text="Current Month Usage", padx=10, pady=5)
+    month_frame = tk.LabelFrame(scrollable_frame, text="Current Month Usage", padx=10, pady=5)
     month_frame.pack(fill="x", padx=10, pady=5)
 
     today = datetime.now().date()
@@ -737,7 +761,7 @@ def open_usage_stats():
     avg_logs = sum(monthly_counts.values()) / len(monthly_counts) if monthly_counts else 0
     tk.Label(month_frame, text=f"Average Daily Logs: {avg_logs:.2f}").pack(anchor="w", padx=5, pady=2)
 
-    insights_frame = tk.LabelFrame(window, text="Usage Patterns & Insights", padx=10, pady=5)
+    insights_frame = tk.LabelFrame(scrollable_frame, text="Usage Patterns & Insights", padx=10, pady=5)
     insights_frame.pack(fill="x", padx=10, pady=5)
 
     
@@ -767,6 +791,26 @@ def open_usage_stats():
     bar.pack(anchor="w", padx=20)
     tk.Label(insights_frame, text=f"{peak_hour}:00 - {hour_counts[peak_hour]} logs").pack(anchor="w", padx=20) 
 
+
+    hourly_tag_counts = {h: {} for h in range(24)}
+    for log in logs:
+        log_hour = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").hour
+        for tag in log.get("tags", []):
+            t = tag.strip().lower()
+            if t:
+                hourly_tag_counts[log_hour][t] = hourly_tag_counts[log_hour].get(t, 0) + 1
+
+    hourly_frame = tk.LabelFrame(insights_frame, text="Top Tag by Hour", padx=10, pady=5)
+    hourly_frame.pack(fill="x", padx=10, pady=5)
+
+    for h in range(24):
+        tags = hourly_tag_counts[h]
+        if tags:
+            top_tag = max(tags.items(), key=lambda x: x[1])
+            text = f"{h:02d}:00 - {top_tag[0]} ({top_tag[1]} logs)"
+        else:
+            text = f"{h:02d}:00 - No tags"
+        tk.Label(hourly_frame, text=text).pack(anchor="w")
     
     current_streak, longest_streak = calculate_streaks(logs)
     tk.Label(insights_frame, text=f"Current Intentional Streak: {current_streak} day{'s' if current_streak != 1 else ''}").pack(anchor="w")
@@ -781,6 +825,6 @@ def open_usage_stats():
     suggested_goal = f"Try to log more intentionally on {dow_names[peak_dow_index]}." if total else "Start logging your habits!"
     tk.Label(insights_frame, text=f"Suggested Habit Goal: {suggested_goal}", fg="blue").pack(anchor="w")
 
-    tk.Button(window, text="Close", command=window.destroy).pack(pady=10)
+    tk.Button(scrollable_frame, text="Close", command=window.destroy).pack(pady=10)
 
     
