@@ -568,6 +568,7 @@ def open_habit_tracker():
     tk.Button(button_frame, text="Open Reflection & Insights", command=open_reflection_window).pack(side="left", padx=5)
     tk.Button(button_frame, text="View Streak Badges", command=open_streak_badges).pack(side="left", padx=5)
     tk.Button(button_frame, text="View Usage Stats", command=open_usage_stats).pack(side="left", padx=5)
+    tk.Button(button_frame, text="View Predictive Insights", command=open_predictive_insights).pack(side="left", padx=5)
 
 
     tk.Label(content_frame, text="Past Logs:").pack(pady=(10, 0))
@@ -827,4 +828,94 @@ def open_usage_stats():
 
     tk.Button(scrollable_frame, text="Close", command=window.destroy).pack(pady=10)
 
+def open_predictive_insights():
+    window = tk.Toplevel()
+    window.title("Predictive Habit Insights")
+    window.geometry("600x650")
+
+    main_frame = tk.Frame(window)
+    main_frame.pack(fill="both", expand=True)
+
+    canvas = tk.Canvas(main_frame)
+    scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    scrollbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    scrollable_frame = tk.Frame(canvas)
+    canvas_window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+    def on_frame_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    scrollable_frame.bind("<Configure>", on_frame_configure)
+
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
+    logs = load_logs()
+    if not logs:
+        messagebox.showinfo("No Data", "No logs available to analyze.", parent=window)
+        return
+
+    today = datetime.now().date()
+    days_back = 30
+    daily_counts = {today - timedelta(days=i): 0 for i in range(days_back)}
+
+    for log in logs:
+        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+        if log_date in daily_counts:
+            daily_counts[log_date] += 1
+
+    insights_frame = tk.LabelFrame(scrollable_frame, text="Predictive Habit Insights", padx=10, pady=5)
+    insights_frame.pack(fill="x", padx=10, pady=5)
+
+    dow_counts = [0]*7
+    for log in logs:
+        dow = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").weekday()
+        dow_counts[dow] += 1
+    dow_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    most_active_dow_index = dow_counts.index(max(dow_counts)) if dow_counts else 0
+
+    tk.Label(insights_frame, text=f"Most Active Day: {dow_names[most_active_dow_index]} ({dow_counts[most_active_dow_index]} logs)", font=("Arial", 12, "bold")).pack(anchor="w", pady=2)
+
+    least_active_dow_index = dow_counts.index(min(dow_counts)) if dow_counts else 0
+    tk.Label(insights_frame, text=f"Least Active Day: {dow_names[least_active_dow_index]} ({dow_counts[least_active_dow_index]} logs)", font=("Arial", 12, "bold")).pack(anchor="w", pady=2)
+
+    hour_counts = [0]*24
+    for log in logs:
+        hour = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").hour
+        hour_counts[hour] += 1
+    peak_hour = hour_counts.index(max(hour_counts)) if any(hour_counts) else 0
+    tk.Label(insights_frame, text=f"Peak Logging Hour: {peak_hour}:00 ({hour_counts[peak_hour]} logs)", font=("Arial", 12, "bold")).pack(anchor="w", pady=2)
+
+    min_hour = hour_counts.index(min(hour_counts)) if any(hour_counts) else 0
+    tk.Label(insights_frame, text=f"Least Active Hour: {min_hour}:00 ({hour_counts[min_hour]} logs)", font=("Arial", 12, "bold")).pack(anchor="w", pady=2)
+
+    top_tags = {}
+    for log in logs:
+        for tag in log.get("tags", []):
+            t = tag.strip().lower()
+            if t:
+                top_tags[t] = top_tags.get(t, 0) + 1
+    sorted_tags = sorted(top_tags.items(), key=lambda x: x[1], reverse=True)[:3]
+    tag_text = ", ".join([f"{t[0]} ({t[1]} times)" for t in sorted_tags]) if sorted_tags else "No tags yet"
+    tk.Label(insights_frame, text=f"Recommended Tags to Focus Next Week: {tag_text}", fg="blue").pack(anchor="w", pady=5)
+
     
+    current_streak, longest_streak = calculate_streaks(logs)
+    tk.Label(insights_frame, text=f"Current Streak: {current_streak} days").pack(anchor="w", pady=2)
+    tk.Label(insights_frame, text=f"Longest Streak: {longest_streak} days").pack(anchor="w", pady=2)
+
+    if current_streak < longest_streak:
+        tk.Label(insights_frame, text=f"Try to beat your longest streak next week!", fg="green").pack(anchor="w", pady=5)
+    else:
+        tk.Label(insights_frame, text=f"You're on your longest streak! Keep it up!", fg="green").pack(anchor="w", pady=5)
+
+    
+    tk.Button(scrollable_frame, text="Close", command=window.destroy).pack(pady=10)
