@@ -376,6 +376,17 @@ def open_habit_tracker():
     streak_label = tk.Label(stats_frame, text="Clean Streak: 0 days")
     streak_label.pack(anchor="w", pady=1)
 
+    detox_label = tk.Label(stats_frame, text="Digital Detox Hours: 0h 0m")
+    detox_label.pack(anchor="w", pady=1)
+
+    total_detox_minutes = tk.IntVar(value=0)
+
+    def update_detox_counter(minutes):
+        total_detox_minutes.set(total_detox_minutes.get() + minutes)
+        hours, mins = divmod(total_detox_minutes.get(), 60)
+        detox_label.config(text=f"Digital Detox Hours: {hours}h {mins}m")
+
+
     filter_frame = tk.LabelFrame(content_frame, text="Search & Filter")
     filter_frame.pack(fill="x", padx=10, pady=(0, 5))
 
@@ -475,6 +486,9 @@ def open_habit_tracker():
             "intentional": intentional_var.get(),
             "timestamp": timestamp
         }
+
+        if entry["intentional"] == "Yes":
+            update_detox_counter(30)
 
         save_log(entry)
         usage_entry.delete(0, tk.END)
@@ -852,11 +866,14 @@ def open_predictive_insights():
     scrollable_frame.bind("<Configure>", on_frame_configure)
 
     def _on_mousewheel(event):
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        try:
+            event.widget.yview_scroll(int(-1*(event.delta/120)), "units")
+        except tk.TclError:
+            pass
 
-    canvas.bind_all("<MouseWheel>", _on_mousewheel)
-    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+    canvas.bind("<MouseWheel>", _on_mousewheel)
+    canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
     logs = load_logs()
     if not logs:
