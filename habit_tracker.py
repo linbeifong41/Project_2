@@ -429,6 +429,16 @@ def open_habit_tracker():
             filtered.append(log)
         return filtered
 
+    def refresh_detox():
+        today_logs = get_today_logs()
+        intentional = sum(1 for log in today_logs if log["intentional"] == "Yes")
+        total_minutes = intentional * 30
+
+        hours, mins = divmod(total_minutes, 60)
+        detox_label.config(text=f"Digital Detox Hours: {hours}h {mins}m")
+
+        total_detox_minutes.set(total_minutes)
+
     def refresh_logs():
         log_listbox.delete(0, tk.END)
         logs = load_logs()
@@ -459,6 +469,8 @@ def open_habit_tracker():
         streak = get_clean_streak()
         streak_label.config(text=f"Clean Streak: {streak} day{'s' if streak != 1 else ''}")
 
+        refresh_detox()
+
     def submit_log():
         text = usage_entry.get().strip()
         notes = notes_text.get("1.0", tk.END).strip()
@@ -488,7 +500,7 @@ def open_habit_tracker():
         }
 
         if entry["intentional"] == "Yes":
-            update_detox_counter(30)
+            refresh_detox()
 
         save_log(entry)
         usage_entry.delete(0, tk.END)
@@ -622,11 +634,10 @@ def calculate_streaks(logs):
 
     return current_streak, longest_streak
 
-def open_usage_stats():
+def create_scrollable_window(title, size=(600, 650)):
     window = tk.Toplevel()
-    window.title("Usage Stats")
-    window.geometry("600x650")
-
+    window.title(title)
+    window.geometry(f"{size[0]}x{size[1]}")
     main_frame = tk.Frame(window)
     main_frame.pack(fill="both", expand=True)
 
@@ -637,20 +648,29 @@ def open_usage_stats():
     scrollbar.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
 
-    scrollable_frame = tk.Frame(canvas)
-    canvas_window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    frame = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=frame, anchor="nw")
 
     def on_frame_configure(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
 
-    scrollable_frame.bind("<Configure>", on_frame_configure)
+    frame.bind("<Configure>", on_frame_configure)
 
     def _on_mousewheel(event):
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        try:
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except tk.TclError:
+            pass
 
-    canvas.bind_all("<MouseWheel>", _on_mousewheel) 
-    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units")) 
-    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))   
+    canvas.bind("<MouseWheel>", _on_mousewheel)
+    canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
+    return window, frame
+
+
+def open_usage_stats():
+    window, frame = create_scrollable_window("Usage Stats")
 
     logs = load_logs()
     if not logs:
@@ -665,7 +685,7 @@ def open_usage_stats():
                 tag_counts[t] = tag_counts.get(t, 0) + 1
     sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
 
-    tag_frame = tk.LabelFrame(scrollable_frame, text="Top Tags", padx=10, pady=5)
+    tag_frame = tk.LabelFrame(frame, text="Top Tags", padx=10, pady=5)
     tag_frame.pack(fill="x", padx=10, pady=5)
 
     if sorted_tags:
@@ -677,7 +697,7 @@ def open_usage_stats():
     intentional_count = sum(1 for log in logs if log.get("intentional") == "Yes")
     unintentional_count = len(logs) - intentional_count
 
-    intent_frame = tk.LabelFrame(scrollable_frame, text="Intentional vs Unintentional Usage", padx=10, pady=5)
+    intent_frame = tk.LabelFrame(frame, text="Intentional vs Unintentional Usage", padx=10, pady=5)
     intent_frame.pack(fill="x", padx=10, pady=5)
 
     total = intentional_count + unintentional_count
@@ -703,7 +723,7 @@ def open_usage_stats():
         if log_date in daily_counts:
             daily_counts[log_date] += 1
 
-    week_frame = tk.LabelFrame(scrollable_frame, text="Logs Last 7 Days", padx=10, pady=5)
+    week_frame = tk.LabelFrame(frame, text="Logs Last 7 Days", padx=10, pady=5)
     week_frame.pack(fill="x", padx=10, pady=5)
 
     max_count = max(daily_counts.values()) if daily_counts else 1
@@ -716,7 +736,7 @@ def open_usage_stats():
         tk.Label(frame, bg="blue", width=bar_length, height=1).pack(side="left")
         tk.Label(frame, text=f"{count} logs").pack(side="left", padx=5)
     
-    trend_frame = tk.LabelFrame(scrollable_frame, text="Tag Trends (Last 14 Days)", padx=10, pady=5)
+    trend_frame = tk.LabelFrame(frame, text="Tag Trends (Last 14 Days)", padx=10, pady=5)
     trend_frame.pack(fill="x", padx=10, pady=5)
 
     days_to_show = 14
@@ -748,7 +768,7 @@ def open_usage_stats():
         tk.Label(bar_frame, text="")
     
     
-    month_frame = tk.LabelFrame(scrollable_frame, text="Current Month Usage", padx=10, pady=5)
+    month_frame = tk.LabelFrame(frame, text="Current Month Usage", padx=10, pady=5)
     month_frame.pack(fill="x", padx=10, pady=5)
 
     today = datetime.now().date()
@@ -776,7 +796,7 @@ def open_usage_stats():
     avg_logs = sum(monthly_counts.values()) / len(monthly_counts) if monthly_counts else 0
     tk.Label(month_frame, text=f"Average Daily Logs: {avg_logs:.2f}").pack(anchor="w", padx=5, pady=2)
 
-    insights_frame = tk.LabelFrame(scrollable_frame, text="Usage Patterns & Insights", padx=10, pady=5)
+    insights_frame = tk.LabelFrame(frame, text="Usage Patterns & Insights", padx=10, pady=5)
     insights_frame.pack(fill="x", padx=10, pady=5)
 
     
@@ -840,40 +860,10 @@ def open_usage_stats():
     suggested_goal = f"Try to log more intentionally on {dow_names[peak_dow_index]}." if total else "Start logging your habits!"
     tk.Label(insights_frame, text=f"Suggested Habit Goal: {suggested_goal}", fg="blue").pack(anchor="w")
 
-    tk.Button(scrollable_frame, text="Close", command=window.destroy).pack(pady=10)
+    tk.Button(frame, text="Close", command=window.destroy).pack(pady=10)
 
 def open_predictive_insights():
-    window = tk.Toplevel()
-    window.title("Predictive Habit Insights")
-    window.geometry("600x650")
-
-    main_frame = tk.Frame(window)
-    main_frame.pack(fill="both", expand=True)
-
-    canvas = tk.Canvas(main_frame)
-    scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=scrollbar.set)
-
-    scrollbar.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-
-    scrollable_frame = tk.Frame(canvas)
-    canvas_window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-
-    def on_frame_configure(event):
-        canvas.configure(scrollregion=canvas.bbox("all"))
-
-    scrollable_frame.bind("<Configure>", on_frame_configure)
-
-    def _on_mousewheel(event):
-        try:
-            event.widget.yview_scroll(int(-1*(event.delta/120)), "units")
-        except tk.TclError:
-            pass
-
-    canvas.bind("<MouseWheel>", _on_mousewheel)
-    canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-    canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+    window, frame = create_scrollable_window("Predictive Habit Insights")
 
     logs = load_logs()
     if not logs:
@@ -889,7 +879,7 @@ def open_predictive_insights():
         if log_date in daily_counts:
             daily_counts[log_date] += 1
 
-    insights_frame = tk.LabelFrame(scrollable_frame, text="Predictive Habit Insights", padx=10, pady=5)
+    insights_frame = tk.LabelFrame(frame, text="Predictive Habit Insights", padx=10, pady=5)
     insights_frame.pack(fill="x", padx=10, pady=5)
 
     dow_counts = [0]*7
@@ -935,4 +925,4 @@ def open_predictive_insights():
         tk.Label(insights_frame, text=f"You're on your longest streak! Keep it up!", fg="green").pack(anchor="w", pady=5)
 
     
-    tk.Button(scrollable_frame, text="Close", command=window.destroy).pack(pady=10)
+    tk.Button(frame, text="Close", command=window.destroy).pack(pady=10)
