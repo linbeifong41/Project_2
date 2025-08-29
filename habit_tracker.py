@@ -23,6 +23,23 @@ def save_template(template):
     with open(TEMPLATE_FILE, "w") as f:
         json.dump(templates, f, indent=4)
 
+GOALS_FILE = "daily_goals.json"
+
+def load_goal():
+    try:
+        import json, os
+        if os.path.exists(GOALS_FILE):
+            with open(GOALS_FILE, "r") as f:
+                return float(json.load(f).get("daily_goal", 0))
+    except Exception:
+        pass
+    return 0.0
+
+def save_goal(hours: float):
+    import json
+    with open(GOALS_FILE, "w") as f:
+        json.dump({"daily_goal": float(hours)}, f)
+
 
 BADGE_FILE = "badge_data.json"
 
@@ -365,6 +382,32 @@ def open_habit_tracker():
     stats_frame = tk.LabelFrame(content_frame, text="Today's Summary", padx=10, pady=5)
     stats_frame.pack(fill="x", padx=10, pady=(5, 10))
 
+    goal_frame = tk.LabelFrame(content_frame, text="Daily Mindful Goal", padx=10, pady=5)
+    goal_frame.pack(fill="x", padx=10, pady=(0, 5))
+
+    tk.Label(goal_frame, text="Hours:").pack(side="left")
+    goal_var = tk.StringVar(value=str(load_goal()))
+    goal_entry = tk.Entry(goal_frame, textvariable=goal_var, width=6)
+    goal_entry.pack(side="left", padx=5)
+
+    def update_goal():
+        try:
+            hrs = float(goal_var.get())
+            if hrs < 0:
+                raise ValueError()
+            save_goal(hrs)
+            refresh_logs() 
+            messagebox.showinfo("Goal Set", f"Daily mindful goal set to {hrs}h.", parent=content_frame)
+        except ValueError:
+            messagebox.showwarning("Invalid", "Enter a non-negative number.", parent=content_frame)
+
+    tk.Button(goal_frame, text="Set", command=update_goal).pack(side="left", padx=5)
+
+    goal_progress = ttk.Progressbar(goal_frame, orient="horizontal", length=260, mode="determinate")
+    goal_progress.pack(side="left", padx=10)
+    goal_progress_label = tk.Label(goal_frame, text="Progress: 0%")
+    goal_progress_label.pack(side="left")
+
     total_label = tk.Label(stats_frame, text="Total: 0")
     total_label.pack(anchor="w")
     intentional_label = tk.Label(stats_frame, text="Intentional: 0")
@@ -469,6 +512,21 @@ def open_habit_tracker():
         streak = get_clean_streak()
         streak_label.config(text=f"Clean Streak: {streak} day{'s' if streak != 1 else ''}")
 
+        daily_goal_hours = load_goal()
+        if daily_goal_hours > 0:
+            mindful_minutes = intentional * 30
+            goal_minutes = int(daily_goal_hours * 60)
+            progress = min(int((mindful_minutes / goal_minutes) * 100), 100)
+
+            goal_progress["value"] = progress
+            goal_progress_label.config(
+            text=f"Progress: {progress}% "
+                f"({mindful_minutes//60}h {mindful_minutes%60}m / {int(goal_minutes/60)}h)"
+            )
+        else:
+            goal_progress["value"] = 0
+            goal_progress_label.config(text="No daily goal set")
+
         refresh_detox()
 
     def submit_log():
@@ -498,9 +556,6 @@ def open_habit_tracker():
             "intentional": intentional_var.get(),
             "timestamp": timestamp
         }
-
-        if entry["intentional"] == "Yes":
-            refresh_detox()
 
         save_log(entry)
         usage_entry.delete(0, tk.END)
