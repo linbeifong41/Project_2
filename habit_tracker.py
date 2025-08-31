@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, filedialog
 import json
 import os
 from datetime import datetime
@@ -325,7 +325,7 @@ def open_habit_tracker():
                 notes_text.delete("1.0", tk.END)
                 notes_text.insert(tk.END, t.get('notes', ''))
                 tags_entry.delete(0, tk.END)
-                tags_entry.insert(0, ", ".join(t.get('keywords', [])))
+                tags_entry.insert(0, ", ".join(t.get('tags', [])))
                 intentional_var.set(t.get('intentional', 'Yes'))
                 break
 
@@ -671,6 +671,7 @@ def open_habit_tracker():
     tk.Button(button_frame, text="View Streak Badges", command=open_streak_badges).pack(side="left", padx=5)
     tk.Button(button_frame, text="View Usage Stats", command=open_usage_stats).pack(side="left", padx=5)
     tk.Button(button_frame, text="View Predictive Insights", command=open_predictive_insights).pack(side="left", padx=5)
+    tk.Button(button_frame, text="View History", command=open_history_viewer).pack(side="left", padx=5)
 
 
     tk.Label(content_frame, text="Past Logs:").pack(pady=(10, 0))
@@ -686,31 +687,23 @@ def open_habit_tracker():
     refresh_logs()
     check_for_reminder()
 
-
-
 def calculate_streaks(logs):
-    """Return current streak and longest streak of intentional usage."""
-    if not logs:
+    dates = sorted({datetime.strptime(l["timestamp"], "%Y-%m-%d %H:%M:%S").date()
+                    for l in logs if l.get("intentional") == "Yes"})
+    if not dates:
         return 0, 0
 
-    sorted_logs = sorted(logs, key=lambda l: l["timestamp"])
-    current_streak = 0
-    longest_streak = 0
-    last_date = None
-
-    for log in sorted_logs:
-        log_date = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").date()
-        if log.get("intentional") == "Yes":
-            if last_date is None or (log_date - last_date).days == 1:
-                current_streak += 1
-            else:
-                current_streak = 1
-            longest_streak = max(longest_streak, current_streak)
+    current_streak = 1
+    longest_streak = 1
+    for i in range(1, len(dates)):
+        if (dates[i] - dates[i-1]).days == 1:
+            current_streak += 1
         else:
-            current_streak = 0
-        last_date = log_date
+            current_streak = 1
+        longest_streak = max(longest_streak, current_streak)
 
     return current_streak, longest_streak
+
 
 def create_scrollable_window(title, size=(600, 650)):
     window = tk.Toplevel()
@@ -1004,3 +997,124 @@ def open_predictive_insights():
 
     
     tk.Button(frame, text="Close", command=window.destroy).pack(pady=10)
+
+def open_history_viewer():
+    history_win = tk.Toplevel()
+    history_win.title("Session History Viewer")
+    history_win.geometry("800x500")
+    
+    filter_frame = tk.Frame(history_win)
+    filter_frame.pack(fill="x", padx=10, pady=5)
+
+    tk.Label(filter_frame, text="Search:").grid(row=0, column=0, sticky="w")
+    search_entry = tk.Entry(filter_frame)
+    search_entry.grid(row=0, column=1, sticky="ew", padx=5)
+
+    tk.Label(filter_frame, text="Intentional:").grid(row=0, column=2, sticky="w")
+    intentional_filter = ttk.Combobox(filter_frame, values=["All", "Yes", "No"], state="readonly")
+    intentional_filter.set("All")
+    intentional_filter.grid(row=0, column=3, padx=5)
+
+    apply_button = tk.Button(filter_frame, text="Apply Filters", command=lambda: refresh_tree())
+    apply_button.grid(row=0, column=4, padx=5)
+
+    filter_frame.columnconfigure(1, weight=1)
+
+    columns = ("date", "usage", "intentional", "tags", "notes")
+    tree = ttk.Treeview(history_win, columns=columns, show="headings")
+    for col in columns:
+        tree.heading(col, text=col.capitalize())
+        tree.column(col, width=150, anchor="w")
+
+    scrollbar = ttk.Scrollbar(history_win, orient="vertical", command=tree.yview)
+    tree.configure(yscroll=scrollbar.set)
+    tree.pack(side="left", fill="both", expand=True, padx=10, pady=5)
+    scrollbar.pack(side="right", fill="y")
+
+    button_frame = tk.Frame(history_win)
+    button_frame.pack(fill="x", pady=5)
+
+    try:
+        with open("usage_log.json", "r", encoding="utf-8") as f:
+            all_logs = json.load(f)
+    except FileNotFoundError:
+        all_logs = []
+
+    filtered_logs = []
+
+    def refresh_tree():
+        nonlocal filtered_logs
+        keyword = search_entry.get().lower()
+        intentional_val = intentional_filter.get()
+
+        filtered_logs = []
+        for log in all_logs:
+            match_keyword = keyword in log["usage"].lower() or keyword in log["notes"].lower()
+            match_intentional = (
+                intentional_val == "All" or
+                (intentional_val == "Yes" and log["intentional"]) or
+                (intentional_val == "No" and not log["intentional"])
+            )
+            if match_keyword and match_intentional:
+                filtered_logs.append(log)
+
+        for item in tree.get_children():
+            tree.delete(item)
+
+        for log in filtered_logs:
+            tree.insert("", "end", values=(log["date"], log["usage"], 
+                                          "Yes" if log["intentional"] else "No",
+                                          ", ".join(log["tags"]),
+                                          log["notes"][:30] + ("..." if len(log["notes"]) > 30 else "")))
+
+    def save_logs():
+        nonlocal all_logs
+        with open("usage_log.json", "w", encoding="utf-8") as f:
+            json.dump(all_logs, f, indent=4)
+
+    def delete_selected():
+        nonlocal all_logs
+        selected = tree.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Select a log to delete.")
+            return
+        confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete selected log(s)?")
+        if confirm:
+            for sel in selected:
+                values = tree.item(sel, "values")
+                all_logs.remove(next(l for l in all_logs if l["date"] == values[0] and l["usage"] == values[1]))
+            save_logs()
+            refresh_tree()
+
+    def export_filtered():
+        file = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
+        if not file:
+            return
+        for log in filtered_logs:
+            with open(file, "w", encoding="utf-8") as f:
+                for log in filtered_logs:
+                    f.write(f"{log['date']} | {log['usage']} | {log['intentional']} | {log['tags']} | {log['notes']}\n")
+        messagebox.showinfo("Export Complete", f"Filtered logs exported to:\n{file}")
+
+    def view_full_note(event):
+        selected = tree.selection()
+        if not selected:
+            return
+        values = tree.item(selected[0], "values")
+        log = next(l for l in all_logs if l["date"] == values[0] and l["usage"] == values[1])
+        note_win = tk.Toplevel(history_win)
+        note_win.title("Full Note")
+        tk.Text(note_win, wrap="word", width=60, height=20, padx=5, pady=5).pack(fill="both", expand=True)
+        text_widget = note_win.winfo_children()[0]
+        text_widget.insert("1.0", log["notes"])
+        text_widget.config(state="disabled")
+
+    tree.bind("<Double-1>", view_full_note)
+
+    delete_btn = tk.Button(button_frame, text="Delete Selected", command=delete_selected)
+    delete_btn.pack(side="left", padx=5)
+
+    export_btn = tk.Button(button_frame, text="Export Filtered", command=export_filtered)
+    export_btn.pack(side="left", padx=5)
+
+    refresh_tree()
