@@ -7,6 +7,7 @@ from collections import Counter
 from datetime import timedelta
 from tkinter import simpledialog
 import random
+import time
 
 
 TEMPLATE_FILE = "templates.json"
@@ -471,6 +472,26 @@ def open_habit_tracker():
 
             filtered.append(log)
         return filtered
+    
+    last_break_time = time.time()
+    reminder_interval = 30 * 60
+
+    def check_for_reminder():
+        nonlocal last_break_time
+        now = time.time()
+
+        today_logs = get_today_logs()
+        unintentional = sum(1 for log in today_logs if log["intentional"] == "No")
+
+        if unintentional >= 5:
+            messagebox.showwarning("Reminder", "You've logged several unintentional sessions today. Time to take a mindful break?")
+            last_break_time = now
+
+        if now - last_break_time >= reminder_interval:
+            messagebox.showinfo("Mindful Break", "You've been active for a while. Take a short mindful break!")
+            last_break_time = now
+
+        window.after(60_000, check_for_reminder) 
 
     def refresh_detox():
         today_logs = get_today_logs()
@@ -663,6 +684,8 @@ def open_habit_tracker():
     tk.Button(filter_frame, text="Apply Filters", command=refresh_logs).grid(row=0, column=6, padx=5)
 
     refresh_logs()
+    check_for_reminder()
+
 
 
 def calculate_streaks(logs):
