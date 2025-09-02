@@ -1,0 +1,1 @@
+This is where i will be explaining the code, why i wrote it the way it is, and explain all the words and functions.
