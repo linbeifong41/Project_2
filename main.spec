@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\spellchecker\\resources', 'spellchecker/resources')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
