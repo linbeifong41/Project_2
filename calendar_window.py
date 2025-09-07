@@ -5,17 +5,19 @@ import os
 import json
 from datetime import datetime, date
 from journal import open_specific_journal
+from utils import user_file_path
 
-REMINDER_FILE = "reminders.json"
+
+REMINDER_FILE = user_file_path("reminders.json")
 
 def load_reminders():
     if os.path.exists(REMINDER_FILE):
-        with open(REMINDER_FILE, "r") as f:
+        with open(REMINDER_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 def save_reminders(data):
-    with open(REMINDER_FILE, "w") as f:
+    with open(REMINDER_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
 def open_calendar_screen():

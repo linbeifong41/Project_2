@@ -16,9 +16,8 @@ Todo_list.py:
 
     
     def save_tasks():
-        with open("todo.txt", "w", encoding="utf-8") as f:
-             json.dump(tasks, f)
-    
+        with open(user_file_path("todo.txt"), "w", encoding="utf-8") as f:
+                json.dump(tasks, f)
 
       
     def load_tasks():

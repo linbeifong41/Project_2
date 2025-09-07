@@ -1,6 +1,7 @@
 import tkinter as tk
 from datetime import date 
 from tkinter import scrolledtext
+from utils import user_file_path
 import os 
 
 
@@ -31,7 +32,7 @@ def open_journal_screen():
 
 
     def list_journal_files(search_filter=""):
-        files = [f for f in os.listdir() if f.startswith("journal_") and f.endswith(".txt")]
+        files = [f for f in os.listdir(user_file_path("")) if f.startswith("journal_") and f.endswith(".txt")]
         filtered_files = [f for f in sorted(files, reverse=True) if search_filter.strip() == "" or search_filter.lower() in f.lower()]
         file_list.delete(0, tk.END)
         
@@ -124,9 +125,13 @@ def open_journal_screen():
         text = journal_box.get("1.0", tk.END).strip()
         if text:
             today = date.today().isoformat()
-            filename = f"journal_{today}.txt"
-            with open(filename, "w", encoding="utf-8") as file:
-                file.write(text)
+            filename = user_file_path(f"journal_{today}.txt") 
+
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+        
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(text)
+
             status_label.config(text=f"Saved to {filename}")
             print(f"Journal Saved To {filename}")
             list_journal_files()
@@ -137,7 +142,7 @@ def open_journal_screen():
     def save_tags_only():
         tags = tag_entry.get().strip()
         today = date.today().isoformat()
-        filename = f"journal_{today}.txt"
+        filename = user_file_path(f"journal_{today}.txt")
 
         if os.path.exists(filename):
             with open(filename, "r", encoding="utf-8") as file:
@@ -176,7 +181,7 @@ def open_specific_journal(date_str):
     journal_window.geometry("600x500")
     journal_window.configure(bg="#F4f4F4")
 
-    filename = f"journal_{date_str}.txt"
+    filename = user_file_path(f"journal_{date_str}.txt")
 
     heading = tk.Label(journal_window, text=f"Journal for {date_str}", font=("Arial", 16, "bold"), bg="#ECEBEB")
     heading.pack(pady=10)

@@ -1,25 +1,15 @@
 import tkinter as tk
-
 from tkinter import filedialog, messagebox, font
-
 from spellchecker import SpellChecker
-
 from language_tool_python import LanguageTool
-
 import re
-
 from tkinter import Menu
-
 import os
 
 spell = SpellChecker()
-
 tool = LanguageTool('en-US')
-
 ignored_words = set()
-
 ignored_grammar_offsets = set()
-
 
 def notepad():
 
@@ -271,7 +261,7 @@ def notepad():
                 end = index_from_offset(match.offset + match.errorLength)
                 for rep in match.replacements[:5]:
                     menu.add_command(label=f"Grammar: {rep}", command=lambda r=rep, s=start, e=end: replace_word(s, e, r))
-                menu.add_command(label="Ignore Grammar", command=lambda o=match.offset: ignored_grammar_offsets.add(0))
+                menu.add_command(label="Ignore Grammar", command=lambda o=match.offset: ignored_grammar_offsets.add(o))
                 break
 
        
@@ -362,7 +352,7 @@ def notepad():
             except Exception as e:
                 status_var.set(f"Autosave failed: {e}")
 
-        root.after(100, highlight_misspellings_and_grammar)
+        root.after(500, highlight_misspellings_and_grammar)
 
     text_area.bind("<KeyRelease>", autosave_and_highlight)
 

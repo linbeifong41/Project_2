@@ -7,6 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import tkinter.colorchooser as colorchooser
 import tkinter.simpledialog as simpledialog
+from utils import user_file_path
 import csv
 import random
 import json
@@ -15,10 +16,23 @@ import winsound
 import datetime
 
 
+PROJECT_FILE = user_file_path("projects.json")
+if not os.path.exists(PROJECT_FILE):
+    with open(PROJECT_FILE, "w", encoding="utf-8") as f:
+        json.dump([], f, indent=2)
 
 
+PLANNER_DATA_FILE = user_file_path("study_planner_data.json")
+if not os.path.exists(PLANNER_DATA_FILE):
+    with open(PLANNER_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({}, f, indent=2)
 
-SAVE_FILE = "flashcards.json"
+TEMPLATE_FILE = user_file_path("session_templates.json")
+if not os.path.exists(TEMPLATE_FILE):
+    with open(TEMPLATE_FILE, "w", encoding="utf-8") as f:
+        json.dump([], f, indent=2)
+
+SAVE_FILE = user_file_path("flashcards.json")
 decks = {}
 current_deck = None
 
@@ -80,7 +94,7 @@ def setup_flashcards(frame):
             if messagebox.askyesno("Confirm", f"Delete deck '{deck}' and all its cards?"):
                 del decks[deck]
                 current_deck.set("")
-                refresh_decks()
+                current_index[0] = 0  
                 update_display()
                 save_flashcards()
     tk.Button(deck_frame, text="Delete deck", command=delete_deck).pack(side="left", padx=5)
@@ -276,9 +290,8 @@ def setup_flashcards(frame):
 
 
 
-STATE_FILE = "pomodoro_state.json"
-
-PRESET_FILE = "pomodoro_presets.json"
+STATE_FILE = user_file_path("pomodoro_state.json")
+PRESET_FILE = user_file_path("pomodoro_presets.json")
 
 def load_presets():
     if os.path.exists(PRESET_FILE):
@@ -612,13 +625,11 @@ def setup_pomodoro(frame):
         reset_timer()
 
 
-PROJECT_FILE = "projects.json"
-
 def setup_project_tracker(frame):
     if os.path.exists(PROJECT_FILE):
         try:
-            with open(PROJECT_FILE, "r") as f:
-                projects = json.load(f)
+            with open(user_file_path(PROJECT_FILE), "r", encoding="utf-8") as f:
+                    projects = json.load(f)
         except Exception as e:
             print("Error loading project file:", e)
             projects = []
@@ -1124,10 +1135,7 @@ def wrap_text(text, width):
     import textwrap
     return textwrap.wrap(text, width)  
 
-PLANNER_DATA_FILE = "study_planner_data.json"
 planner_data = {}
-
-TEMPLATE_FILE = "session_templates.json"
 
 def load_templates():
     if os.path.exists(TEMPLATE_FILE):

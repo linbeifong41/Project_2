@@ -400,7 +400,7 @@ Ensures dynamic and consistent styling like a simple rich text editor.
             except Exception as e:
                 status_var.set(f"Autosave failed: {e}")
 
-        root.after(100, highlight_misspellings_and_grammar)
+        root.after(500, highlight_misspellings_and_grammar)
 
     text_area.bind("<KeyRelease>", autosave_and_highlight)
 

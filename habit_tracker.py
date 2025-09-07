@@ -4,14 +4,21 @@ import json
 import os
 from datetime import datetime
 from collections import Counter
+from calendar import monthrange
 from datetime import timedelta
 from tkinter import simpledialog
+from utils import resource_path
+from utils import user_file_path
 import random
 import time
 
-history_win = None
+TEMPLATE_FILE = resource_path("templates.json")
+GOALS_FILE = resource_path("daily_goals.json")
+BADGE_FILE = resource_path("badge_data.json")
+LOG_FILE = resource_path("tech_habit_logs.json")
+REFLECTION_FILE = resource_path("reflection_notes.json")
 
-TEMPLATE_FILE = "templates.json"
+history_win = None
 
 def load_templates():
     if os.path.exists(TEMPLATE_FILE):
@@ -24,8 +31,6 @@ def save_template(template):
     templates.append(template)
     with open(TEMPLATE_FILE, "w") as f:
         json.dump(templates, f, indent=4)
-
-GOALS_FILE = "daily_goals.json"
 
 def load_goal():
     try:
@@ -43,8 +48,6 @@ def save_goal(hours: float):
         json.dump({"daily_goal": float(hours)}, f)
 
 
-BADGE_FILE = "badge_data.json"
-
 def load_last_badge():
     if os.path.exists(BADGE_FILE):
         with open(BADGE_FILE, "r") as f:
@@ -55,8 +58,6 @@ def save_last_badge(days):
     with open(BADGE_FILE, "w") as f:
         json.dump({"last_badge": days}, f)
 
-
-LOG_FILE = "tech_habit_logs.json"
 
 def load_logs():
     if os.path.exists(LOG_FILE):
@@ -99,7 +100,6 @@ def get_clean_streak():
 
     return streak
 
-REFLECTION_FILE = "reflection_notes.json"
 
 def open_reflection_window():
     window = tk.Toplevel()
@@ -190,11 +190,16 @@ def open_reflection_window():
         lines.append("\nYour Reflection Notes:")
         lines.append(reflection_text.get("1.0", tk.END).strip())
 
-        filename = f"reflection_report_{today.strftime('%Y%m%d')}.txt"
+        user_dir = os.path.join(os.path.expanduser("~"), "MyAppReports")
+        os.makedirs(user_dir, exist_ok=True)
+
+        filename = user_file_path(f"reflection_report_{today.strftime('%Y%m%d')}.txt")
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
 
         messagebox.showinfo("Exported", f"Report exported to {filename}", parent=window)
+
 
     export_btn = tk.Button(window, text="Export Reflection Report to TXT", command=export_report)
     export_btn.pack(pady=(0,10))
@@ -848,7 +853,7 @@ def open_usage_stats():
     today = datetime.now().date()
     first_day_month = today.replace(day=1)
 
-    days_in_month = (today.replace(month=today.month % 12 + 1, day=1) - timedelta(days=1)).day
+    days_in_month = monthrange(today.year, today.month)[1]
     monthly_counts = {day: 0 for day in range(1, days_in_month + 1)}
 
     for log in logs:

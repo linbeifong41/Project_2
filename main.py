@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox, filedialog, colorchooser
+import os, sys, json, datetime
 from datetime import date
 from journal import open_journal_screen
 from calendar_window import open_calendar_screen
@@ -7,10 +8,34 @@ from notepad import notepad
 from Todo_List import todo_list
 from study_window import open_study_tools
 from habit_tracker import open_habit_tracker
+from utils import user_file_path
+from utils import ensure_json_file, ensure_txt_file
+
+FILES_JSON = {
+    "reminders.json": [],
+    "templates.json": [],
+    "daily_goals.json": [],
+    "badge_data.json": {},
+    "tech_habit_logs.json": [],
+    "reflection_notes.json": [],
+    "projects.json": []
+}
+
+FILES_TXT = [
+    "todo.txt"
+]
+
+
+for filename, default_data in FILES_JSON.items():
+    ensure_json_file(filename, default_data)
+
+
+for filename in FILES_TXT:
+    ensure_txt_file(filename)
 
 def log_mood(level):
     today = date.today().isoformat()
-    with open("mood_log.txt", "a") as file:
+    with open(user_file_path("mood_log.txt"), "a", encoding="utf-8") as file:
         file.write(f"{today}: Mood {level}/5\n")
     refresh_logs()
 
@@ -88,7 +113,7 @@ mood_log_box.pack(pady=5, fill="both", expand=True)
 def refresh_logs():
     mood_log_box.delete("1.0", tk.END)
     try:
-        with open("mood_log.txt", "r") as f:
+        with open(user_file_path("mood_log.txt"), "r", encoding="utf-8") as f:
             mood_log_box.insert(tk.END, f.read())
     except FileNotFoundError:
         mood_log_box.insert(tk.END, "No moods logged yet.")

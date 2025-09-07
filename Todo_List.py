@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timedelta, date
 from tkinter import ttk, simpledialog, messagebox
 from tkcalendar import DateEntry
-
+from utils import user_file_path
 
 
 
@@ -23,16 +23,14 @@ def todo_list():
 
     
     def save_tasks():
-        with open("todo.txt", "w", encoding="utf-8") as f:
-             json.dump(tasks, f)
+        with open(user_file_path("todo.txt"), "w", encoding="utf-8") as f:
+                json.dump(tasks, f)
     
-
       
     def load_tasks():
         try:
-            with open("todo.txt", "r", encoding="utf-8") as f:
+            with open(user_file_path("todo.txt"), "r", encoding="utf-8") as f:
                 loaded_tasks = json.load(f)
-           
         except:
             return []
 
