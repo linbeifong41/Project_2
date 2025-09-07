@@ -6,7 +6,9 @@ USER_DATA_DIR = os.path.join(os.path.expanduser("~"), "MyAppData", "YourApp")
 os.makedirs(USER_DATA_DIR, exist_ok=True)
 
 def user_file_path(filename):
-    return os.path.join(USER_DATA_DIR, filename)
+    base = os.path.join(os.path.expanduser("~"), "MindGarden") 
+    os.makedirs(base, exist_ok=True)  
+    return os.path.join(base, filename)
 
 def ensure_json_file(filename, default_data):
     path = user_file_path(filename)
