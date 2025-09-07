@@ -46,24 +46,25 @@ def open_journal_screen():
 
 
     def show_past_entry(filename):
-
         if filename == "No matching entries":
             return 
-        
+    
+        full_path = user_file_path(filename) 
         try:
-             with open(filename, "r", encoding="utf-8", ) as file:
+            with open(full_path, "r", encoding="utf-8") as file:
                 content = file.read()
                 past_entry_box.config(state=tk.NORMAL)
                 past_entry_box.delete("1.0", tk.END)
                 past_entry_box.insert(tk.END, f"--- {filename} ---\n\n{content}")
                 past_entry_box.config(state=tk.DISABLED)
-                selected_filename.set(filename)
-
+                selected_filename.set(full_path)
+                
         except FileNotFoundError:
             past_entry_box.config(state=tk.NORMAL)
+            past_entry_box.delete("1.0", tk.END)
             past_entry_box.insert(tk.END, f"{filename} not found.\n")
             past_entry_box.config(state=tk.DISABLED)
-    
+
     def on_file_select(event):
         selected = file_list.get(tk.ACTIVE)
         show_past_entry(selected)

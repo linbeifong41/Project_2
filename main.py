@@ -12,7 +12,7 @@ from utils import user_file_path
 from utils import ensure_json_file, ensure_txt_file
 
 FILES_JSON = {
-    "reminders.json": [],
+    "reminders.json": {},
     "templates.json": [],
     "daily_goals.json": [],
     "badge_data.json": {},

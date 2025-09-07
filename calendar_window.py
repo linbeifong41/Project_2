@@ -13,7 +13,10 @@ REMINDER_FILE = user_file_path("reminders.json")
 def load_reminders():
     if os.path.exists(REMINDER_FILE):
         with open(REMINDER_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            if isinstance(data, list):
+                return {}  
+            return data
     return {}
 
 def save_reminders(data):
@@ -26,7 +29,7 @@ def open_calendar_screen():
     cal_window.geometry("450x500")
     cal_window.configure(bg="#F0FFF0")
 
-    reminders = load_reminders()
+    reminders = load_reminders() 
 
     tk.Label(cal_window, text="Select a Date", font=("Arial", 16, "bold"), bg="#F0FFF0").pack(pady=10)
 
@@ -39,13 +42,15 @@ def open_calendar_screen():
 
     def highlight_reminders():
         cal.calevent_remove(tag="reminder")
+
         for d, entries in reminders.items():
-            if entries:
+            if entries: 
                 try:
                     d_date = datetime.strptime(d, "%Y-%m-%d").date()
                     cal.calevent_create(d_date, "Reminder", "reminder")
                 except Exception:
                     pass
+
         cal.tag_config("reminder", background="#ADD8E6", foreground="black")
 
     highlight_reminders()
@@ -67,6 +72,25 @@ def open_calendar_screen():
         canvas.pack(side="left", fill="both", expand=True)
         canvas.create_window((0,0), window=frame, anchor="nw")
         frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        def _on_mousewheel(event): 
+            canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+
+        def _on_mousewheel_mac(event):
+    
+            canvas.yview_scroll(-1 * int(event.delta), "units")
+
+
+        def _bind_to_mousewheel(event):
+            if canvas.tk.call('tk', 'windowingsystem') == 'aqua': 
+                canvas.bind_all("<MouseWheel>", _on_mousewheel_mac)
+            else: 
+                canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_from_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+
+        canvas.bind("<Enter>", _bind_to_mousewheel)
+        canvas.bind("<Leave>", _unbind_from_mousewheel)
         return frame
 
     def add_reminder():
@@ -117,8 +141,17 @@ def open_calendar_screen():
             tk.Label(top, text="No reminders set.", bg="#F0FFF0").pack(pady=10)
             return
 
+        normalized = []
+        for e in entries:
+            if isinstance(e, dict):
+                normalized.append(e)
+            else:
+                normalized.append({"description": e, "importance": "medium"}) 
+        reminders[selected_date] = normalized 
+        save_reminders(reminders) 
+
         importance_order = {"high": 0, "medium": 1, "low": 2}
-        entries = sorted(entries, key=lambda r: importance_order.get(r.get("importance", "medium")))
+        entries = sorted(normalized, key=lambda r: importance_order.get(r.get("importance", "medium"), 1))
 
         frame = create_scrollable_frame(top)
 
@@ -130,7 +163,7 @@ def open_calendar_screen():
 
             btn_frame = tk.Frame(r_frame, bg="#E0FFFF")
             btn_frame.pack(pady=5)
-            
+
             def edit_reminder(i=idx):
                 edit_top = tk.Toplevel(top)
                 edit_top.title("Edit Reminder")
@@ -172,6 +205,7 @@ def open_calendar_screen():
             tk.Button(btn_frame, text="Delete", command=delete_reminder, width=8).pack(side="left", padx=5)
 
     def view_all_reminders():
+        reminders = load_reminders()
         top = tk.Toplevel(cal_window)
         top.title("All Reminders")
         top.geometry("400x500")
@@ -181,10 +215,62 @@ def open_calendar_screen():
 
         frame = create_scrollable_frame(top)
 
-        all_dates = sorted(reminders.keys())
-        for d in all_dates:
-            for entry in reminders[d]:
+        for d, entries in reminders.items():
+            for idx, r in enumerate(entries):
                 r_frame = tk.Frame(frame, bd=1, relief="solid", padx=5, pady=5, bg="#E0FFFF")
                 r_frame.pack(padx=5, pady=5, fill="x")
-                text = f"{d} - ({entry['importance'].capitalize()}) {entry['description']}"
+
+                if isinstance(r, dict):
+                    text = f"{d} - ({r.get('importance', 'medium').capitalize()}) {r.get('description', '')}"
+                else:  
+                    text = f"{d} - {r}"
+
                 tk.Label(r_frame, text=text, wraplength=350, justify="left", bg="#E0FFFF").pack(anchor="w")
+
+                btn_frame = tk.Frame(r_frame, bg="#E0FFFF")
+                btn_frame.pack(pady=5)
+
+                def edit_reminder(date=d, i=idx):
+                    edit_top = tk.Toplevel(top)
+                    edit_top.title("Edit Reminder")
+                    edit_top.geometry("300x220")
+                    edit_top.configure(bg="#F0FFF0")
+
+                    tk.Label(edit_top, text="Edit Description:", bg="#F0FFF0").pack(pady=5)
+                    entry = tk.Entry(edit_top, width=35)
+                    if isinstance(reminders[date][i], dict):
+                        entry.insert(0, reminders[date][i].get('description', ''))
+                    else:
+                        entry.insert(0, reminders[date][i])
+                    entry.pack(pady=5)
+
+                    importance_level = tk.StringVar(value=reminders[date][i].get("importance", "medium") if isinstance(reminders[date][i], dict) else "medium")
+                    tk.Label(edit_top, text="Edit Importance:", bg="#F0FFF0").pack(pady=5)
+                    tk.Radiobutton(edit_top, text="High", variable=importance_level, value="high", bg="#F0FFF0").pack()
+                    tk.Radiobutton(edit_top, text="Medium", variable=importance_level, value="medium", bg="#F0FFF0").pack()
+                    tk.Radiobutton(edit_top, text="Low", variable=importance_level, value="low", bg="#F0FFF0").pack()
+
+                    def save_edit():
+                        if isinstance(reminders[date][i], dict):
+                            reminders[date][i]['description'] = entry.get()
+                            reminders[date][i]['importance'] = importance_level.get()
+                        else:
+                            reminders[date][i] = {"description": entry.get(), "importance": importance_level.get()}
+                        save_reminders(reminders)
+                        highlight_reminders()
+                        edit_top.destroy()
+                        top.destroy()
+                        view_all_reminders()
+
+                    tk.Button(edit_top, text="Save Changes", command=save_edit).pack(pady=10)
+
+                def delete_reminder(date=d, i=idx):
+                    del reminders[date][i]
+                    if not reminders[date]:
+                        del reminders[date]
+                    save_reminders(reminders)
+                    highlight_reminders()
+                    top.destroy()
+                    view_all_reminders()  
+                tk.Button(btn_frame, text="Edit", command=edit_reminder, width=8).pack(side="left", padx=5)
+                tk.Button(btn_frame, text="Delete", command=delete_reminder, width=8).pack(side="left", padx=5)

@@ -229,45 +229,50 @@ def notepad():
 
 
     def show_suggestions(event):
-
         index = text_area.index(f"@{event.x},{event.y}")
         word_start = text_area.index(f"{index} wordstart")
         word_end = text_area.index(f"{index} wordend")
-        word = text_area.get(word_start, word_end)
+        word = text_area.get(word_start, word_end).strip()
+
+        if not word: 
+            return
 
         content = text_area.get("1.0", "end-1c")
         counts = text_area.count("1.0", index, "chars")
         if not counts:
             return
-        
+
         offset = counts[0]
-
-
         menu = Menu(text_area, tearoff=0)
 
-
-        if word.lower()  in spell.unknown([word]):
-
-            for suggestion in spell.candidates(word):
+        if word and word.lower() in spell.unknown([word]):
+            suggestions = spell.candidates(word) or set()
+            for suggestion in suggestions:
                 menu.add_command(label=suggestion, command=lambda s=suggestion: replace_word(word_start, word_end, s))
             menu.add_separator()
-            menu.add_command(label="Ignore Spelling", command=lambda: (ignored_words.add(word.lower()), text_area.tag_remove("misspelled", word_start, word_end)))
+            menu.add_command(
+                label="Ignore Spelling",
+                command=lambda: (ignored_words.add(word.lower()), text_area.tag_remove("misspelled", word_start, word_end))
+            )
 
         matches = tool.check(content)
-
         for match in matches:
             if match.offset <= offset < match.offset + match.errorLength:
                 start = index_from_offset(match.offset)
                 end = index_from_offset(match.offset + match.errorLength)
                 for rep in match.replacements[:5]:
                     menu.add_command(label=f"Grammar: {rep}", command=lambda r=rep, s=start, e=end: replace_word(s, e, r))
-                menu.add_command(label="Ignore Grammar", command=lambda o=match.offset: ignored_grammar_offsets.add(o))
+                menu.add_command(
+                    label="Ignore Grammar",
+                    command=lambda s=start, e=end, o=match.offset: (
+                        ignored_grammar_offsets.add(o),
+                        text_area.tag_remove("grammar", s, e) 
+                    )
+                )
                 break
 
-       
         try:
             menu.tk_popup(event.x_root, event.y_root)
-
         finally:
             menu.grab_release()
 
